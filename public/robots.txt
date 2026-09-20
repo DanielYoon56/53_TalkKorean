@@ -1,0 +1,8 @@
+User-agent: *
+Allow: /
+Disallow: /api/
+
+User-agent: Yeti
+Allow: /
+
+Sitemap: https://talkkorean.ai.studio/sitemap.xml

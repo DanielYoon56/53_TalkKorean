@@ -1,0 +1,6 @@
+{
+  "name": "Talk Korean",
+  "description": "Master Korean with Heritage, Modernity, K-POP hits, and authentic Onomatopoeia & Mimetic words. Features interactive lyrics analysis, pronunciation visualizer, and a smart progress dashboard.",
+  "requestFramePermissions": ["microphone"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
