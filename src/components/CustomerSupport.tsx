@@ -56,8 +56,8 @@ const INITIAL_INQUIRIES: InquiryPost[] = [
   },
   {
     id: 103,
-    category: 'AI 튜터',
-    title: 'AI 튜터 음성이 잘 안 들릴 때 설정 변경 방법',
+    category: '회화 & 발음',
+    title: '음성이 잘 안 들릴 때 설정 변경 방법',
     author: 'michael_p**',
     date: '2026.08.06',
     status: '답변완료',
@@ -104,15 +104,15 @@ const INITIAL_INQUIRIES: InquiryPost[] = [
 const FAQS = [
   {
     q: 'Talk Korean PRO 서비스는 무료인가요?',
-    a: '기본 학습 콘텐츠(학습, K-Culture, 발음 평가, TOPIK 연습)는 무료로 이용 가능합니다. AI 튜터와의 음성 대화 및 영가사 분석 서비스 이용 시 일단 기본 제공되는 무료 크레딧이 차감됩니다.'
+    a: '기본 학습 콘텐츠(학습, K-Culture, 발음 평가, TOPIK 연습)는 무료로 이용 가능합니다. 실시간 음성 회화 및 영가사 분석 서비스 이용 시 일단 기본 제공되는 무료 크레딧이 차감됩니다.'
   },
   {
-    q: 'AI 튜터와 음성 대화 시 발음 평가 기준은 무엇인가요?',
-    a: '최신 AI 음성 인식 엔진을 기반으로 한국어 억양(Intonation), 음소 정확도, 속도 및 유창성을 실시간 분석하여 100점 만점으로 세부 피드백을 제공합니다.'
+    q: '음성 대화 시 발음 평가 기준은 무엇인가요?',
+    a: '최신 음성 인식 엔진을 기반으로 한국어 억양(Intonation), 음소 정확도, 속도 및 유창성을 실시간 분석하여 100점 만점으로 세부 피드백을 제공합니다.'
   },
   {
     q: '1:1 문의에 대한 답변은 얼마나 걸리나요?',
-    a: '평일 기준 평균 1~2시간 이내에 전담 지원팀 및 원어민 튜터가 확인 후 답변을 등록해 드립니다.'
+    a: '평일 기준 평균 1~2시간 이내에 전담 지원팀이 확인 후 답변을 등록해 드립니다.'
   }
 ];
 
@@ -125,13 +125,13 @@ export default function CustomerSupport() {
   const [isWriteModalOpen, setIsWriteModalOpen] = useState<boolean>(false);
 
   // Form State for New Inquiry
-  const [newCategory, setNewCategory] = useState<string>('AI 튜터');
+  const [newCategory, setNewCategory] = useState<string>('회화 & 발음');
   const [newTitle, setNewTitle] = useState<string>('');
   const [newAuthor, setNewAuthor] = useState<string>('');
   const [newContent, setNewContent] = useState<string>('');
   const [newIsSecret, setNewIsSecret] = useState<boolean>(false);
 
-  const categories = ['전체', '공지사항', 'AI 튜터', '결제/크레딧', 'TOPIK / 학습', '시스템 오류', '기타'];
+  const categories = ['전체', '공지사항', '회화 & 발음', '결제/크레딧', 'TOPIK / 학습', '시스템 오류', '기타'];
 
   const filteredInquiries = inquiries.filter(post => {
     const matchesCategory = selectedCategory === '전체' || post.category === selectedCategory;
@@ -484,7 +484,7 @@ export default function CustomerSupport() {
                     onChange={(e) => setNewCategory(e.target.value)}
                     className="w-full p-2.5 border border-editorial-border rounded-sm bg-white text-editorial-text font-bold outline-none focus:border-editorial-accent"
                   >
-                    <option value="AI 튜터">AI 튜터</option>
+                    <option value="회화 & 발음">회화 & 발음</option>
                     <option value="결제/크레딧">결제/크레딧</option>
                     <option value="TOPIK / 학습">TOPIK / 학습</option>
                     <option value="시스템 오류">시스템 오류</option>

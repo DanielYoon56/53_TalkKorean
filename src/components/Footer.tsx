@@ -2,7 +2,7 @@ import React from 'react';
 import { Shield, ExternalLink, HelpCircle, Heart } from 'lucide-react';
 
 interface FooterProps {
-  onOpenAdmin: (tab?: 'costs' | 'analytics' | 'simulator' | 'system' | 'users') => void;
+  onOpenAdmin: (tab?: 'costs' | 'analytics' | 'simulator' | 'system' | 'users' | 'creator') => void;
   setActiveTab: (tab: string) => void;
 }
 

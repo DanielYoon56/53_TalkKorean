@@ -71,7 +71,7 @@ export default function Header({
               </span>
               <span className="hidden sm:flex px-1.5 py-0.5 rounded text-[10px] font-bold bg-rose-100 text-rose-800 border border-rose-300 items-center space-x-1">
                 <span className="w-1.5 h-1.5 rounded-full bg-rose-600 animate-pulse"></span>
-                <span>BETA</span>
+                <span className="font-serif">β</span>
               </span>
             </div>
             <p className="text-[11px] text-editorial-muted font-sans font-medium">
@@ -82,18 +82,6 @@ export default function Header({
 
         {/* Primary Navigation */}
         <nav className="flex items-center space-x-1">
-          <button
-            onClick={() => handleTabClick('Home')}
-            className={`flex items-center space-x-1 px-3 py-1.5 rounded-sm text-xs uppercase tracking-wider font-semibold transition-all cursor-pointer ${
-              activeTab === 'Home'
-                ? 'bg-editorial-accent-light text-editorial-text border border-editorial-border font-bold'
-                : 'text-editorial-muted hover:bg-editorial-accent-light/35 hover:text-editorial-text'
-            }`}
-          >
-            <HomeIcon className="w-3.5 h-3.5" />
-            <span>HOME</span>
-          </button>
-
           <button
             onClick={() => handleTabClick('Dashboard')}
             className={`flex items-center space-x-1 px-3 py-1.5 rounded-sm text-xs uppercase tracking-wider font-semibold transition-all cursor-pointer ${
@@ -182,21 +170,6 @@ export default function Header({
               </div>
             )}
           </div>
-
-          {/* AI Blog & Shorts Creator */}
-          <button
-            onClick={() => handleTabClick('AiCreator')}
-            className={`flex items-center space-x-1 px-3 py-1.5 rounded-sm text-xs uppercase tracking-wider font-semibold transition-all cursor-pointer ${
-              activeTab === 'AiCreator'
-                ? 'bg-amber-500 text-black border border-amber-600 font-extrabold shadow-xs'
-                : 'text-editorial-text hover:bg-amber-50 hover:text-amber-800'
-            }`}
-            title="AI 블로그 원고 & 쇼츠 대본 자동생성기"
-          >
-            <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-            <span>AI CREATOR</span>
-            <span className="ml-1 px-1 py-0.2 bg-amber-400 text-black text-[9px] font-black rounded">NEW</span>
-          </button>
 
           {/* Q&A */}
           <button

@@ -4,8 +4,8 @@ import { createServer as createViteServer } from "vite";
 import { GoogleGenAI } from "@google/genai";
 import dotenv from "dotenv";
 import { findCuratedSlang, CURATED_SLANG_DICTIONARY } from "./src/data/curatedSlangs";
-import { getCuratedOrDynamicGrammarAnalysis } from "./src/data/curatedGrammarNuances";
-import { CURATED_TOPIC_TEMPLATES, synthesizeDynamicContent, ensureAppPromotion, DEFAULT_APP_PROMO_URL } from "./src/data/curatedContentTemplates";
+import { getCuratedOrDynamicGrammarAnalysis, ensureEnrichedGrammarAnalysis } from "./src/data/curatedGrammarNuances";
+import { CURATED_TOPIC_TEMPLATES, findCuratedTopic, synthesizeDynamicContent, ensureAppPromotion, DEFAULT_APP_PROMO_URL } from "./src/data/curatedContentTemplates";
 
 dotenv.config();
 
@@ -276,7 +276,7 @@ Sitemap: https://talkkorean.ai.studio/sitemap.xml
       }`;
 
       const response = await ai.models.generateContent({
-        model: "gemini-3.8-flash",
+        model: "gemini-flash-latest",
         contents: prompt,
         config: {
           responseMimeType: "application/json",
@@ -305,7 +305,7 @@ Sitemap: https://talkkorean.ai.studio/sitemap.xml
     }
   });
 
-  // 1-B. API: Deep AI Grammar Nuance Analysis (Gemini 3.8 Flash with Dynamic Knowledge Engine)
+  // 1-B. API: Deep AI Grammar Nuance Analysis (Real-time Pedagogical & Contextual Linguistic Engine)
   const handleGrammarAnalysisRequest = async (req: express.Request, res: express.Response) => {
     try {
       const rawQuery = (req.body.query || req.body.grammarQuery || "").toString().trim();
@@ -318,47 +318,117 @@ Sitemap: https://talkkorean.ai.studio/sitemap.xml
 
       if (ai) {
         try {
-          const prompt = `You are a master Korean linguist and university professor.
-Analyze and explain the following Korean grammar question or pattern: "${query}".
-Provide a clear, structured, and deep linguistic explanation in JSON format.
+          const prompt = `You are an elite Korean linguistics professor and master pedagogue specializing in KSL (Korean as a Second Language) education, discourse analysis, and Korean literature.
+Analyze and explain the following user-submitted Korean grammar question or pattern in depth: "${query}".
 
-Required JSON Structure:
+Instead of a brief superficial or hardcoded answer, perform a real-time linguistic and contextual breakdown. Analyze the exact context of use, authentic sample sentences across registers (colloquial, workplace, literature), nuanced semantic differences, grammatical constraints, learner difficulty/TOPIK level, common pedagogical traps, and pro-tips for native fluency.
+
+Return STRICTLY a JSON object with this complete schema:
 {
-  "title": "Clear title of the grammar point or comparison",
-  "summary": "1-2 sentence core rule summary",
-  "nuanceDifference": "Clear explanation of nuances, differences in speaker intent, and subtle connotations (e.g. why one is chosen over another)",
+  "title": "Clear, precise title of the grammar point or comparison (in Korean)",
+  "summary": "2-3 sentence core grammatical function & discourse role summary (in Korean)",
+  "difficulty": {
+    "level": "Detailed level name (e.g. '중급 (Intermediate - TOPIK 3~4급)', '문학 및 고전문법 심화 (Mastery - TOPIK 6급+)', '고급 (Advanced - TOPIK 5~6급)', '초급 (Beginner - TOPIK 1~2급)')",
+    "levelCode": "beginner | intermediate | advanced | literary",
+    "topikLevel": "Specific TOPIK reference (e.g. 'TOPIK I 2급', 'TOPIK II 4급', 'TOPIK II 6급 & 문학')",
+    "targetLearner": "Description of learners this grammar is aimed at (in Korean)",
+    "prerequisites": ["List of 2-3 prerequisite grammar points or vocabulary knowledge needed first"],
+    "nextStepGrammar": ["List of 2-3 next logical grammar points to learn after mastering this"]
+  },
+  "contextAnalysis": {
+    "situations": ["List of 3-4 realistic real-life situations/settings where native speakers actually use this (e.g. '직장 내 정중한 보고', '친구 간의 완곡한 거절', '문학적 서정시 감상')"],
+    "formality": "Register & honorifics analysis (e.g. '격식체 (하십시오체) 위주', '비격식 존댓말 (해요체)', '고어풍 문어체')",
+    "speakerIntent": "The speaker's psychological motivation and communicative intent when choosing this specific grammar",
+    "socialNuance": "Interpersonal politeness, face-saving, empathy, or cultural emotional nuance (한, 정, 눈치, etc.)"
+  },
+  "nuanceDifference": "Thorough explanation of subtle connotations, contrasting why native speakers choose this pattern instead of similar alternatives",
   "rules": [
-    {"rule": "Grammar rule / conjugation formula", "detail": "Specific conjugation condition (vowel vs consonant, honorifics)"}
+    {"rule": "Grammar rule / conjugation formula (e.g. '동사 어간 + -(으)ㄹ 때에는')", "detail": "Detailed vowel/consonant/irregular phonological rules & syntactic constraints"}
+  ],
+  "contextualExamples": [
+    {
+      "korean": "Authentic natural Korean sentence reflecting this grammar",
+      "romanized": "Accurate Revised Romanization",
+      "english": "Natural English translation",
+      "contextTag": "Context tag (e.g. '비즈니스/공식', '일상 회화', '문학/시', '공손한 부탁')",
+      "breakdown": "Morphological dissection of key verbs/particles used in this sentence",
+      "whyUsed": "Pedagogical explanation of why this grammar was selected in this particular context"
+    },
+    {
+      "korean": "Second authentic Korean sentence in a contrasting context",
+      "romanized": "Accurate Revised Romanization",
+      "english": "Natural English translation",
+      "contextTag": "Context tag",
+      "breakdown": "Morphological breakdown",
+      "whyUsed": "Why used explanation"
+    },
+    {
+      "korean": "Third authentic Korean sentence",
+      "romanized": "Accurate Revised Romanization",
+      "english": "Natural English translation",
+      "contextTag": "Context tag",
+      "breakdown": "Morphological breakdown",
+      "whyUsed": "Why used explanation"
+    }
   ],
   "dialogues": [
     {
-      "situation": "Real-life context / scenario",
-      "speakerA": "Korean sentence 1",
-      "speakerATrans": "English translation 1",
-      "speakerB": "Korean response 2",
-      "speakerBTrans": "English response 2",
-      "nuanceNote": "Why this specific grammar was used here"
+      "situation": "Detailed real-world scenario (workplace, university, travel, literature club)",
+      "speakerA": "Korean line 1",
+      "speakerATrans": "English line 1",
+      "speakerB": "Korean response line highlighting the grammar point in **bold**",
+      "speakerBTrans": "English translation line",
+      "nuanceNote": "Detailed explanation of the emotional/discourse nuance in this exchange"
     }
   ],
   "commonMistakes": [
-    {"wrong": "Common learner error", "correct": "Correct natural phrasing", "why": "Explanation of why it was wrong"}
+    {
+      "wrong": "Realistic error made by foreign learners (*with asterisk)",
+      "correct": "Natural native correction",
+      "why": "Clear linguistic explanation of the morphological or pragmatic error"
+    }
   ],
-  "proTip": "Helpful mnemonic or practical tip for native-level fluency"
+  "pedagogicalGuide": {
+    "learningFocus": "Key pedagogical takeaway for teachers and serious self-learners",
+    "confusingPairs": [
+      {
+        "grammar": "Comparison (e.g. 'A vs B')",
+        "distinction": "Linguistic and pragmatic distinction between the two forms"
+      }
+    ],
+    "topikTip": "Specific tip for TOPIK exam test-takers (reading/listening/writing sections)"
+  },
+  "proTip": "Memorable mnemonic rule or native intuition tip"
 }`;
 
-          const response = await ai.models.generateContent({
-            model: "gemini-3.8-flash",
-            contents: prompt,
-            config: {
-              responseMimeType: "application/json",
-            },
-          });
+          const modelsToTry = ["gemini-flash-latest", "gemini-3.8-flash", "gemini-3.1-flash-lite"];
+          let rawText: string | undefined;
 
-          const responseText = response.text?.trim();
-          if (responseText) {
-            const parsed = JSON.parse(responseText);
-            if (parsed && parsed.title && parsed.summary) {
-              return res.json(parsed);
+          for (const m of modelsToTry) {
+            try {
+              const response = await ai.models.generateContent({
+                model: m,
+                contents: prompt,
+                config: {
+                  responseMimeType: "application/json",
+                },
+              });
+              const txt = response.text?.trim();
+              if (txt) {
+                rawText = txt;
+                break;
+              }
+            } catch (modelErr: any) {
+              console.warn(`[Gemini Model ${m} Grammar Notice]:`, modelErr?.message || modelErr);
+            }
+          }
+
+          if (rawText) {
+            const parsed = JSON.parse(rawText);
+            if (parsed && parsed.title && (parsed.summary || parsed.nuanceDifference)) {
+              // Ensure all newly defined educational fields (difficulty, contextAnalysis, contextualExamples, pedagogicalGuide) are fully enriched
+              const enriched = ensureEnrichedGrammarAnalysis(parsed, query);
+              return res.json({ ...enriched, engineSource: "gemini_live" });
             }
           }
         } catch (aiErr: any) {
@@ -366,9 +436,9 @@ Required JSON Structure:
         }
       }
 
-      // High-precision curated and dynamic grammar intelligence engine
+      // High-precision curated and dynamic grammar intelligence engine (with full pedagogical enrichment)
       const curatedOrDynamic = getCuratedOrDynamicGrammarAnalysis(query);
-      return res.json(curatedOrDynamic);
+      return res.json({ ...curatedOrDynamic, engineSource: "academic_linguistic_engine" });
     } catch (err: any) {
       console.error("[Grammar Analysis Handler Error]:", err);
       return res.status(500).json({ error: "문법 분석 처리 중 오류가 발생했습니다." });
@@ -437,7 +507,7 @@ Required JSON Structure:
 }`;
 
         const response = await ai.models.generateContent({
-          model: "gemini-3.8-flash",
+          model: "gemini-flash-latest",
           contents: prompt,
           config: {
             responseMimeType: "application/json",
@@ -540,7 +610,7 @@ Required JSON Structure:
       }`;
 
       const response = await ai.models.generateContent({
-        model: "gemini-3.8-flash",
+        model: "gemini-flash-latest",
         contents: prompt,
         config: {
           responseMimeType: "application/json",
@@ -584,9 +654,7 @@ Required JSON Structure:
       const cleanAppUrl = typeof appUrl === "string" && appUrl.trim() ? appUrl.trim() : DEFAULT_APP_PROMO_URL;
 
       // Check if we have a curated template for this topic for instantaneous response
-      const matchedKey = Object.keys(CURATED_TOPIC_TEMPLATES).find((key) => 
-        cleanTopic.toLowerCase().includes(key.toLowerCase()) || key.toLowerCase().includes(cleanTopic.toLowerCase())
-      );
+      const matchedKey = findCuratedTopic(cleanTopic);
 
       const ai = getGeminiClient();
 
@@ -619,12 +687,12 @@ CRITICAL MANDATORY REQUIREMENT FOR PROMOTION:
 1. In the Shorts Script:
    - In Scene 5 (Closing CTA Scene):
      * visual MUST direct: "화면 중앙에 TalkKorean 앱 로고와 다운로드 링크 배너 팝업 (${cleanAppUrl})"
-     * narrationKo MUST include a spoken CTA (e.g. "더 많은 한국어 표현과 1:1 AI 튜터는 고정 댓글의 TalkKorean 앱 링크(${cleanAppUrl})에서 지금 무료로 만나보세요!")
-     * narrationEn MUST include spoken English CTA (e.g. "Practice speaking real Korean 1:1 with our AI tutor on the TalkKorean app (${cleanAppUrl}) for free!")
-     * captionText MUST include: "실전 한국어 AI 튜터 👉 ${cleanAppUrl}"
-     * captionTextEn MUST include: "1:1 AI Korean Tutor 👉 ${cleanAppUrl}"
-   - In "fullScriptKo": End with "\n\n👉 [TalkKorean 공식 앱 바로가기 - AI 튜터와 무료 대화]: ${cleanAppUrl}"
-   - In "fullScriptEn": End with "\n\n👉 [TalkKorean Official App - Practice Real Korean with AI Tutor]: ${cleanAppUrl}"
+     * narrationKo MUST include a spoken CTA (e.g. "더 많은 한국어 표현과 발음 교정은 고정 댓글의 TalkKorean 앱 링크(${cleanAppUrl})에서 지금 무료로 만나보세요!")
+     * narrationEn MUST include spoken English CTA (e.g. "Practice speaking real Korean 1:1 on the TalkKorean app (${cleanAppUrl})!")
+     * captionText MUST include: "실전 한국어 회화 👉 ${cleanAppUrl}"
+     * captionTextEn MUST include: "Real Korean Practice 👉 ${cleanAppUrl}"
+   - In "fullScriptKo": End with "\n\n👉 [TalkKorean 공식 앱 바로가기 - 무료 실전 대화]: ${cleanAppUrl}"
+   - In "fullScriptEn": End with "\n\n👉 [TalkKorean Official App - Practice Real Korean 1:1]: ${cleanAppUrl}"
    - Include "pinnedCommentKo" & "pinnedCommentEn" with "${cleanAppUrl}".
    - Include "videoDescriptionKo" & "videoDescriptionEn" with "${cleanAppUrl}".
    - Include "socialPromoPostKo" & "socialPromoPostEn" with "${cleanAppUrl}".
@@ -637,9 +705,9 @@ CRITICAL MANDATORY REQUIREMENT FOR PROMOTION:
      * "highlightQuote" (Korean) and "highlightQuoteEn" (English)
      * "koreanVocabulary": Array of objects with "word", "romanization", "meaning" (English), "example" (Korean sentence), and "exampleEn" (English translation).
    - In "culturalNuance": Provide deep Korean explanation, and in "culturalNuanceEn" provide English translation.
-   - In "conclusion" & "conclusionEn": Thoughtful closing tying together cultural meaning, inviting readers to try TalkKorean at "${cleanAppUrl}".
+   - In "conclusion" & "conclusionEn": Thoughtful closing tying together cultural meaning, philosophy, and heartfelt warmth (do NOT include app links or URLs in conclusion).
    - In "callToAction" & "callToActionEn": Interactive prompt.
-   - Include "promoBanner": {"title": "🇰🇷 TalkKorean - AI 한국어 & K-컬처 스튜디오", "titleEn": "🇰🇷 TalkKorean - AI Korean & K-Culture Studio", "description": "실시간 원어민 AI 튜터와 1:1 회화 연습 및 정밀 발음 분석", "descriptionEn": "1:1 Real-time AI Native Tutor & Pronunciation Scoring", "url": "${cleanAppUrl}"}.
+   - Include "promoBanner": {"title": "🇰🇷 TalkKorean - 실전 한국어 & K-컬처 스튜디오", "titleEn": "🇰🇷 TalkKorean - Real-Life Korean & K-Culture Studio", "description": "실시간 1:1 회화 연습 및 정밀 발음 분석", "descriptionEn": "1:1 Real-time Conversation Practice & Pronunciation Scoring", "url": "${cleanAppUrl}"}.
 
 You MUST output valid JSON matching this exact structure:
 {
@@ -713,17 +781,17 @@ You MUST output valid JSON matching this exact structure:
     ],
     "culturalNuance": "이 주제에 깃든 한국 고유의 정(情), 배려, 사회적 맥락 해설",
     "culturalNuanceEn": "In-depth explanation of the underlying Korean cultural nuances, Jeong, and social ethos.",
-    "conclusion": "전체 내용을 아우르는 따뜻한 마무리 및 TalkKorean 앱 링크(${cleanAppUrl}) 소개",
-    "conclusionEn": "Warm concluding remarks connecting the theme and inviting learners to practice on TalkKorean (${cleanAppUrl}).",
-    "callToAction": "독자 댓글 참여를 유도하는 질문 (한국어)",
-    "callToActionEn": "Engaging question to prompt reader comments (English)",
+    "conclusion": "전체 내용을 아우르는 따뜻하고 깊이 있는 마무리 (앱 링크나 URL은 절대 포함하지 말 것)",
+    "conclusionEn": "Warm, thoughtful concluding remarks connecting the theme and cultural insight (no URLs or app links).",
+    "callToAction": "독자 댓글 참여와 소통을 이끄는 질문 (한국어, 앱 링크 제외)",
+    "callToActionEn": "Engaging question to prompt reader comments (English, no URLs)",
     "hashtags": ["#Topic", "#한국문화", "#KoreanCulture", "#TalkKorean", "#한국어공부", "#LearnKorean"],
     "appPromoLink": "${cleanAppUrl}",
     "promoBanner": {
-      "title": "🇰🇷 TalkKorean - AI와 함께하는 실전 한국어 & K-컬처 스튜디오",
-      "titleEn": "🇰🇷 TalkKorean - Real-Life Korean & K-Culture AI Studio",
-      "description": "실시간 원어민 AI 튜터와 1:1 회화 연습 및 발음 분석을 지금 무료로 시작해보세요!",
-      "descriptionEn": "Practice 1:1 native conversation and instant pronunciation scoring for free!",
+      "title": "🇰🇷 TalkKorean - 실전 한국어 & K-컬처 스튜디오",
+      "titleEn": "🇰🇷 TalkKorean - Real-Life Korean & K-Culture Studio",
+      "description": "실시간 1:1 회화 연습 및 발음 분석을 지금 무료로 시작해보세요!",
+      "descriptionEn": "Practice 1:1 conversation and instant pronunciation scoring!",
       "url": "${cleanAppUrl}"
     }
   },
@@ -736,9 +804,9 @@ You MUST output valid JSON matching this exact structure:
     "bgmSuggestion": "추천 배경음악 무드 (예: 트렌디한 로파이, 다이내믹 틱톡 비트)",
     "retentionTip": "시청 지속시간 100% 달성을 위한 연출 디렉팅 팁",
     "appPromoLink": "${cleanAppUrl}",
-    "pinnedCommentKo": "📌 [고정 댓글] 오늘 영상에서 배운 한국어, 직접 AI 튜터와 입으로 말하며 연습해보세요!\n👉 TalkKorean 앱에서 무료 체험하기: ${cleanAppUrl}\n#TalkKorean #한국어공부 #KCulture",
-    "pinnedCommentEn": "📌 [Pinned Comment]\nWant to speak real Korean like a native? Practice today's expressions 1:1 with your personal AI Korean Tutor!\n👉 Try TalkKorean App Free: ${cleanAppUrl}\n#TalkKorean #LearnKorean #KoreanCulture #Shorts",
-    "videoDescriptionKo": "🎬 더 많은 한국어 실전 표현과 AI 발음 교정은 TalkKorean에서 확인하세요!\n👉 공식 앱 바로가기: ${cleanAppUrl}\n\n#TalkKorean #한국어 #Shorts",
+    "pinnedCommentKo": "📌 [고정 댓글] 오늘 영상에서 배운 한국어, 직접 입으로 말하며 실전 회화와 발음을 연습해보세요!\n👉 TalkKorean 앱에서 무료 체험하기: ${cleanAppUrl}\n#TalkKorean #한국어공부 #KCulture",
+    "pinnedCommentEn": "📌 [Pinned Comment]\nWant to speak real Korean like a native? Practice today's expressions 1:1 with real-time feedback!\n👉 Try TalkKorean App Free: ${cleanAppUrl}\n#TalkKorean #LearnKorean #KoreanCulture #Shorts",
+    "videoDescriptionKo": "🎬 더 많은 한국어 실전 표현과 발음 교정은 TalkKorean에서 확인하세요!\n👉 공식 앱 바로가기: ${cleanAppUrl}\n\n#TalkKorean #한국어 #Shorts",
     "videoDescriptionEn": "🎬 Want to dive deeper into Korean expressions and cultural nuances?\nExperience 24/7 1:1 conversational practice with TalkKorean!\n👉 Official App: ${cleanAppUrl}\n\n#TalkKorean #Korean #LearnKorean #Shorts",
     "socialPromoPostKo": "소셜미디어(인스타/페이스북) 홍보용 한국어 포스트 문구",
     "socialPromoPostEn": "Social media promo caption in English with hashtags and app link",
@@ -787,10 +855,10 @@ You MUST output valid JSON matching this exact structure:
         "sceneNumber": 5,
         "timeRange": "00:48 - 00:58",
         "visual": "화면 중앙에 TalkKorean 앱 로고 & 다운로드 링크 배너 팝업 (${cleanAppUrl})",
-        "narrationKo": "더 많은 실전 대화와 AI 튜터는 TalkKorean 앱(${cleanAppUrl})에서 지금 무료로 만나보세요!",
-        "narrationEn": "Practice speaking real Korean 1:1 with our AI Tutor on TalkKorean (${cleanAppUrl}) for free!",
-        "captionText": "실전 한국어 AI 튜터 👉 ${cleanAppUrl}",
-        "captionTextEn": "1:1 AI Korean Tutor 👉 ${cleanAppUrl}",
+        "narrationKo": "더 많은 실전 대화와 발음 연습은 TalkKorean 앱(${cleanAppUrl})에서 지금 무료로 만나보세요!",
+        "narrationEn": "Practice speaking real Korean 1:1 on TalkKorean (${cleanAppUrl})!",
+        "captionText": "실전 한국어 회화 👉 ${cleanAppUrl}",
+        "captionTextEn": "Real Korean Practice 👉 ${cleanAppUrl}",
         "sfx": "산뜻한 징글 효과음"
       }
     ],
@@ -800,7 +868,7 @@ You MUST output valid JSON matching this exact structure:
 }`;
 
           const response = await ai.models.generateContent({
-            model: "gemini-3.8-flash",
+            model: "gemini-flash-latest",
             contents: prompt,
             config: {
               responseMimeType: "application/json",
@@ -815,7 +883,7 @@ You MUST output valid JSON matching this exact structure:
               return res.json({
                 ...promotedResult,
                 topic: cleanTopic,
-                source: "gemini-3.8-flash",
+                source: "gemini-flash-latest",
               });
             }
           }
@@ -872,7 +940,7 @@ You MUST output valid JSON matching this exact structure:
       if (!ai) throw new Error("Gemini API key not configured");
       
       // Define persona instructions
-      let personaName = "Gemini AI 튜터";
+      let personaName = "Gemini AI 한국어 마스터";
       let personaStyle = "";
 
       switch (persona) {
@@ -993,7 +1061,7 @@ Return ONLY a JSON object conforming to this schema:
 }`;
 
       const response = await ai.models.generateContent({
-        model: "gemini-3.8-flash",
+        model: "gemini-flash-latest",
         contents: validTurns,
         config: {
           systemInstruction: systemInstruction,
@@ -1032,7 +1100,7 @@ Return ONLY a JSON object conforming to this schema:
           .trim();
       }
 
-      parsedData.engine = "gemini-3.8-flash";
+      parsedData.engine = "gemini-flash-latest";
       return res.json(parsedData);
     } catch (err: any) {
       if (process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY !== "MY_GEMINI_API_KEY") {
@@ -1475,7 +1543,7 @@ ${slangData.examples.map(ex => `* *"${ex.korean}"*\n  * (${ex.english})`).join("
       }`;
 
       const response = await ai.models.generateContent({
-        model: "gemini-3.8-flash",
+        model: "gemini-flash-latest",
         contents: prompt,
         config: {
           responseMimeType: "application/json",
@@ -2211,7 +2279,7 @@ ${slangData.examples.map(ex => `* *"${ex.korean}"*\n  * (${ex.english})`).join("
               ko: "지우와 대화하는 동안 한국어 실력이 부쩍 늘고 계시네요! 평소에 어떤 방법으로 한국어를 공부하시나요?",
               ro: "Ji-u-wa daehwa-haneun dongan Hangugeo silryeok-i bujjeok neulgo gesineyo! Pyeongso-e eotteon bangbeob-euro Hangugeo-reul gongbu-hasingayo?",
               en: "Your Korean skills are improving so much while chatting with Ji-woo! How do you usually study Korean?",
-              sug: ["K-POP 가사랑 한국 드라마로 배워요. (I learn with K-POP lyrics and K-dramas.)", "AI 튜터 지우님과 대화하는 게 제일 재밌어요! (Chatting with AI Tutor Ji-woo is the most fun!)", "매일 어휘랑 단어를 외우고 있어요. (I memorize vocabulary every day.)"]
+              sug: ["K-POP 가사랑 한국 드라마로 배워요. (I learn with K-POP lyrics and K-dramas.)", "지우님과 대화하는 게 제일 재밌어요! (Chatting with Ji-woo is the most fun!)", "매일 어휘랑 단어를 외우고 있어요. (I memorize vocabulary every day.)"]
             },
             {
               ko: "정말 자연스럽게 잘 말씀하시는데요! 😊 다음엔 한국의 어떤 문화나 장소에 대해 이야기해 볼까요?",
@@ -2290,7 +2358,7 @@ Output JSON ONLY with the following schema:
   "improvedEssay": "완벽하게 교정된 TOPIK II 최고득점 모범 답안 문장"
 }`;
 
-      const model = "gemini-3.8-flash";
+      const model = "gemini-flash-latest";
       const ai = getGeminiClient();
       if (!ai) throw new Error("Gemini API key not configured");
       const response = await ai.models.generateContent({

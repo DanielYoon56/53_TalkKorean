@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { BookOpen, Volume2, CheckCircle2, AlertCircle, Sparkles, Zap, Search, HelpCircle, Loader2, ArrowRight } from 'lucide-react';
+import { BookOpen, Volume2, CheckCircle2, AlertCircle, HelpCircle } from 'lucide-react';
 import { speakKoreanText } from '../../utils/tts';
 
 interface Example {
@@ -165,12 +165,6 @@ function renderRedEnglish(text: string, targets: string[] = []) {
 export default function GrammarMenu({ onOpenHonorifics, credits = 0, onSpendCredits, onOpenCreditModal }: GrammarMenuProps = {}) {
   const [activeTopicId, setActiveTopicId] = useState<string>('particles');
   const [selectedQuizAnswer, setSelectedQuizAnswer] = useState<number | null>(null);
-
-  // AI Grammar Nuance Analyzer State (1 CR)
-  const [customGrammarQuery, setCustomGrammarQuery] = useState<string>('');
-  const [isAnalyzingGrammar, setIsAnalyzingGrammar] = useState<boolean>(false);
-  const [aiGrammarResult, setAiGrammarResult] = useState<any | null>(null);
-  const [aiError, setAiError] = useState<string | null>(null);
 
   const topics: GrammarTopic[] = [
     {
@@ -670,45 +664,6 @@ export default function GrammarMenu({ onOpenHonorifics, credits = 0, onSpendCred
 
   const currentTopic = topics.find(t => t.id === activeTopicId) || topics[0];
 
-  const handleAiAnalyzeGrammar = async (overrideQuery?: string) => {
-    const query = (overrideQuery || customGrammarQuery).trim();
-    if (!query) return;
-
-    if (overrideQuery) {
-      setCustomGrammarQuery(overrideQuery);
-    }
-
-    if (credits < 1) {
-      setAiError("크레딧이 부족합니다. AI 정밀 문법 분석에는 1 CR이 필요합니다.");
-      if (onOpenCreditModal) onOpenCreditModal();
-      return;
-    }
-
-    if (onSpendCredits) {
-      const ok = onSpendCredits(1, `AI 문법 뉘앙스 분석: ${query}`);
-      if (!ok) return;
-    }
-
-    setIsAnalyzingGrammar(true);
-    setAiError(null);
-    setAiGrammarResult(null);
-
-    try {
-      const res = await fetch('/api/grammar/analyze', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query })
-      });
-      const data = await res.json();
-      setAiGrammarResult(data);
-    } catch (err) {
-      console.warn("AI Grammar analysis error:", err);
-      setAiError("AI 분석 중 일시적 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.");
-    } finally {
-      setIsAnalyzingGrammar(false);
-    }
-  };
-
   const handleSpeakText = (text: string) => {
     speakKoreanText(text);
   };
@@ -952,186 +907,6 @@ export default function GrammarMenu({ onOpenHonorifics, credits = 0, onSpendCred
               <p className="text-editorial-muted leading-relaxed">
                 {renderRedGrammarKorean(currentTopic.quiz.explanation, currentTopic.grammarKeywords)}
               </p>
-            </div>
-          )}
-        </div>
-
-        {/* AI Grammar Nuance Deep Analyzer (⚡ 1 CR) */}
-        <div className="border-t border-editorial-border pt-6 space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-2">
-              <div className="p-1 rounded-xs bg-red-600 text-white">
-                <Sparkles className="w-4 h-4" />
-              </div>
-              <h3 className="text-sm font-bold font-serif text-editorial-text">AI 문법 뉘앙스 정밀 비교기</h3>
-              <span className="text-[10px] bg-red-100 text-red-700 border border-red-300 px-2 py-0.5 rounded-full font-bold">
-                ⚡ 1 CR
-              </span>
-            </div>
-            <span className="text-xs text-editorial-muted">
-              보유 크레딧: <strong className="text-editorial-text font-mono">{credits} CR</strong>
-            </span>
-          </div>
-
-          <p className="text-xs text-editorial-muted">
-            사전이나 교과서만으로는 헷갈리는 미묘한 한국어 문법 차이(예: 은/는 vs 이/가, -아/어서 vs -(으)니까)를 AI가 대화 예시와 함께 알기 쉽게 비교해 드립니다.
-          </p>
-
-          {/* Quick Preset Questions */}
-          <div className="space-y-1.5">
-            <span className="text-[10px] font-bold text-editorial-muted uppercase tracking-wider">자주 묻는 문법 뉘앙스 비교:</span>
-            <div className="flex flex-wrap gap-1.5">
-              {[
-                "은/는 과 이/가의 뉘앙스 차이점을 외국인이 이해하기 쉽게 설명해줘",
-                "-아/어서 와 -(으)니까 의 쓰임새 차이와 주의점",
-                "-(으)ㄹ게요 와 -(으)ㄹ 거예요 의 약속 vs 의지 차이",
-                "-아/어 보다 와 -아/어 두다 의 뉘앙스 비교"
-              ].map((query, qIdx) => {
-                const isCurrent = customGrammarQuery === query;
-                return (
-                  <button
-                    key={qIdx}
-                    onClick={() => handleAiAnalyzeGrammar(query)}
-                    disabled={isAnalyzingGrammar}
-                    className={`px-2.5 py-1.5 border rounded-sm text-[11px] font-medium transition-all cursor-pointer ${
-                      isCurrent
-                        ? 'bg-red-600 text-white border-red-600 shadow-xs font-bold'
-                        : 'bg-editorial-bg hover:bg-red-50 hover:border-red-300 text-editorial-text border-editorial-border'
-                    }`}
-                  >
-                    💡 {query}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Custom Query Input */}
-          <div className="flex gap-2">
-            <input
-              type="text"
-              placeholder="예: '-아/어 보다'와 '-아/어 두다'의 차이점을 알려줘"
-              value={customGrammarQuery}
-              onChange={(e) => setCustomGrammarQuery(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  handleAiAnalyzeGrammar();
-                }
-              }}
-              className="flex-1 px-3 py-2 text-xs bg-editorial-bg border border-editorial-border rounded-sm focus:outline-none focus:border-red-500 font-serif"
-            />
-            <button
-              onClick={() => handleAiAnalyzeGrammar()}
-              disabled={isAnalyzingGrammar || !customGrammarQuery.trim()}
-              className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-xs font-bold rounded-sm transition-colors flex items-center space-x-1.5 disabled:opacity-50 cursor-pointer shrink-0 shadow-2xs"
-            >
-              {isAnalyzingGrammar ? (
-                <>
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  <span>AI 분석 중...</span>
-                </>
-              ) : (
-                <>
-                  <Sparkles className="w-3.5 h-3.5" />
-                  <span>AI 정밀 분석 (1 CR)</span>
-                </>
-              )}
-            </button>
-          </div>
-
-          {aiError && (
-            <div className="p-3 bg-rose-50 border border-rose-200 rounded-sm text-xs text-rose-800 flex items-center justify-between">
-              <span>{aiError}</span>
-              {onOpenCreditModal && (
-                <button
-                  onClick={onOpenCreditModal}
-                  className="underline font-bold text-rose-900 ml-2 cursor-pointer"
-                >
-                  크레딧 충전하기
-                </button>
-              )}
-            </div>
-          )}
-
-          {/* AI Result Card */}
-          {aiGrammarResult && (
-            <div className="bg-editorial-bg border border-editorial-border p-4 rounded-sm space-y-4 animate-fadeIn">
-              <div className="border-b border-editorial-border pb-2">
-                <span className="text-[10px] font-bold text-red-600 uppercase tracking-wider">AI Master Analysis</span>
-                <h4 className="text-base font-bold font-serif text-editorial-text">{aiGrammarResult.title}</h4>
-                <p className="text-xs text-editorial-muted mt-1">{aiGrammarResult.summary}</p>
-              </div>
-
-              {aiGrammarResult.nuanceDifference && (
-                <div className="bg-white p-3 rounded-sm border border-editorial-border space-y-1">
-                  <span className="text-[11px] font-bold text-amber-900 flex items-center space-x-1">
-                    <span>💡</span>
-                    <span>핵심 뉘앙스 및 화자의 심리 차이:</span>
-                  </span>
-                  <p className="text-xs text-editorial-text leading-relaxed font-serif">
-                    {aiGrammarResult.nuanceDifference}
-                  </p>
-                </div>
-              )}
-
-              {aiGrammarResult.rules && aiGrammarResult.rules.length > 0 && (
-                <div className="space-y-1.5">
-                  <span className="text-[10px] font-bold text-editorial-muted uppercase tracking-wider">문법 결합 및 규칙:</span>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    {aiGrammarResult.rules.map((r: any, rIdx: number) => (
-                      <div key={rIdx} className="bg-white p-2.5 rounded-sm border border-editorial-border text-xs space-y-0.5">
-                        <div className="font-bold text-red-600 font-serif">{r.rule}</div>
-                        <div className="text-editorial-muted text-[11px] leading-relaxed">{r.detail}</div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {aiGrammarResult.dialogues && aiGrammarResult.dialogues.length > 0 && (
-                <div className="space-y-2">
-                  <span className="text-[10px] font-bold text-editorial-muted uppercase tracking-wider">실생활 비교 대화:</span>
-                  {aiGrammarResult.dialogues.map((d: any, dIdx: number) => (
-                    <div key={dIdx} className="bg-white p-3 rounded-sm border border-editorial-border text-xs space-y-1">
-                      <div className="font-bold text-red-600 text-[10px]">{d.situation}</div>
-                      <div className="text-editorial-text font-serif font-bold">
-                        🗣️ {renderRedGrammarKorean(d.speakerA)} <span className="text-editorial-muted font-normal text-[11px]">({d.speakerATrans})</span>
-                      </div>
-                      <div className="text-editorial-text font-serif font-bold">
-                        💬 {renderRedGrammarKorean(d.speakerB)} <span className="text-editorial-muted font-normal text-[11px]">({d.speakerBTrans})</span>
-                      </div>
-                      {d.nuanceNote && (
-                        <div className="text-[11px] text-emerald-800 bg-emerald-50 p-1.5 rounded mt-1">
-                          📌 {d.nuanceNote}
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {aiGrammarResult.commonMistakes && aiGrammarResult.commonMistakes.length > 0 && (
-                <div className="space-y-1.5">
-                  <span className="text-[10px] font-bold text-editorial-muted uppercase tracking-wider">학습자들이 자주 하는 실수:</span>
-                  <div className="space-y-1.5">
-                    {aiGrammarResult.commonMistakes.map((m: any, mIdx: number) => (
-                      <div key={mIdx} className="bg-white p-2.5 rounded-sm border border-editorial-border text-xs space-y-1">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span className="text-rose-600 font-bold">❌ {m.wrong}</span>
-                          <span className="text-emerald-700 font-bold">➔ ⭕ {m.correct}</span>
-                        </div>
-                        <div className="text-[11px] text-editorial-muted">{m.why}</div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {aiGrammarResult.proTip && (
-                <div className="text-xs text-red-700 font-bold bg-red-50 p-2.5 rounded-sm border border-red-200">
-                  ✨ Pro-Tip: {aiGrammarResult.proTip}
-                </div>
-              )}
             </div>
           )}
         </div>

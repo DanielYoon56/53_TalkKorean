@@ -687,10 +687,10 @@ export default function UserPatternReportModal({
                   <div className="p-4 rounded-lg bg-emerald-50 border border-emerald-200 space-y-1.5">
                     <div className="font-bold text-emerald-950 flex items-center space-x-1.5">
                       <CheckCircle className="w-3.5 h-3.5 text-emerald-600" />
-                      <span>2. AI 회화 튜터링의 압도적인 체류 시간</span>
+                      <span>2. AI 롤플레잉 회화의 압도적인 체류 시간</span>
                     </div>
                     <p className="text-emerald-900 text-[11px] leading-relaxed">
-                      AI 튜터(지우)와의 롤플레잉 회화 세션은 <strong>평균 체류 시간 5분 20초</strong>로 전체 메뉴 중 가장 높으며,
+                      AI 롤플레잉 회화 세션은 <strong>평균 체류 시간 5분 20초</strong>로 전체 메뉴 중 가장 높으며,
                       한 번 진입한 이용자의 세션 완수율이 84%에 달합니다.
                     </p>
                   </div>

@@ -45,7 +45,7 @@ export default function App() {
   const [pronunciationResult, setPronunciationResult] = useState<PronunciationScore | null>(null);
   const [isCreditModalOpen, setIsCreditModalOpen] = useState<boolean>(false);
   const [isAdminOpen, setIsAdminOpen] = useState<boolean>(false);
-  const [adminInitialTab, setAdminInitialTab] = useState<'costs' | 'analytics' | 'simulator' | 'system' | 'users'>('costs');
+  const [adminInitialTab, setAdminInitialTab] = useState<'costs' | 'analytics' | 'simulator' | 'system' | 'users' | 'creator'>('costs');
   const [currentLang, setCurrentLang] = useState<string>('EN');
 
   // Synchronize activeTab to localStorage and URL hash to prevent accidental resets
@@ -71,7 +71,7 @@ export default function App() {
     return () => window.removeEventListener('hashchange', handleHashChange);
   }, [activeTab]);
 
-  const handleOpenAdmin = (tab?: 'costs' | 'analytics' | 'simulator' | 'system' | 'users') => {
+  const handleOpenAdmin = (tab?: 'costs' | 'analytics' | 'simulator' | 'system' | 'users' | 'creator') => {
     setAdminInitialTab(tab || 'costs');
     setIsAdminOpen(true);
   };
@@ -241,7 +241,7 @@ export default function App() {
             onNavigateToMyPage={() => handleNavigate('MyPage')}
             onNavigateToAiCreator={(topic) => {
               setAiCreatorTopic(topic);
-              handleNavigate('AiCreator');
+              handleOpenAdmin('creator');
             }}
           />
         )}
@@ -329,6 +329,9 @@ export default function App() {
         userStats={stats}
         onResetApp={() => setStats(INITIAL_USER_STATS)}
         initialTab={adminInitialTab}
+        initialCreatorTopic={aiCreatorTopic}
+        onOpenCreditModal={() => setIsCreditModalOpen(true)}
+        onSpendCredits={handleSpendCredits}
       />
     </div>
   );

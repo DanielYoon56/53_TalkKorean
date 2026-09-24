@@ -12,8 +12,11 @@ import {
 } from 'recharts';
 import { UserStats } from '../types';
 import { getAnalyticsSummary, exportAnalyticsCSV, resetAllAnalyticsData } from '../utils/analyticsTracker';
+import AiContentGenerator from './AiContentGenerator';
 
 const PIE_COLORS = ['#0284c7', '#0d9488', '#f59e0b', '#e11d48', '#8b5cf6', '#10b981', '#64748b', '#f97316'];
+
+export type AdminTab = 'costs' | 'simulator' | 'analytics' | 'system' | 'users' | 'creator';
 
 interface AdminModalProps {
   isOpen: boolean;
@@ -21,11 +24,21 @@ interface AdminModalProps {
   userStats?: UserStats;
   onResetApp?: () => void;
   initialTab?: AdminTab;
+  initialCreatorTopic?: string;
+  onOpenCreditModal?: () => void;
+  onSpendCredits?: (cost: number, reason: string) => boolean;
 }
 
-type AdminTab = 'costs' | 'simulator' | 'analytics' | 'system' | 'users';
-
-export default function AdminModal({ isOpen, onClose, userStats, onResetApp, initialTab = 'costs' }: AdminModalProps) {
+export default function AdminModal({ 
+  isOpen, 
+  onClose, 
+  userStats, 
+  onResetApp, 
+  initialTab = 'costs',
+  initialCreatorTopic,
+  onOpenCreditModal,
+  onSpendCredits
+}: AdminModalProps) {
   const [activeTab, setActiveTab] = useState<AdminTab>(initialTab);
   const [analyticsRefreshKey, setAnalyticsRefreshKey] = useState<number>(0);
   const analyticsSummary = getAnalyticsSummary('7d');
@@ -308,6 +321,18 @@ export default function AdminModal({ isOpen, onClose, userStats, onResetApp, ini
           >
             <Users className="w-4 h-4 text-amber-600" />
             <span>👥 크레딧 및 계정 관리</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('creator')}
+            className={`flex items-center space-x-2 py-3 px-4 border-b-2 font-bold text-xs uppercase tracking-wider transition-all whitespace-nowrap cursor-pointer ${
+              activeTab === 'creator'
+                ? 'border-amber-500 text-amber-900 bg-amber-500/10'
+                : 'border-transparent text-editorial-muted hover:text-editorial-text'
+            }`}
+          >
+            <Sparkles className="w-4 h-4 text-amber-500" />
+            <span>✨ AI 마케팅 원고 & 쇼츠 생성기</span>
           </button>
         </div>
 
@@ -1338,6 +1363,39 @@ export default function AdminModal({ isOpen, onClose, userStats, onResetApp, ini
                     </button>
                   </div>
                 )}
+              </div>
+            </div>
+          )}
+
+          {/* TAB 6: AI MARKETING CONTENT STUDIO */}
+          {activeTab === 'creator' && (
+            <div className="space-y-4">
+              <div className="bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent border border-amber-500/30 p-4 rounded-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex items-center space-x-3">
+                  <div className="p-2 rounded-sm bg-amber-500 text-black">
+                    <Sparkles className="w-5 h-5 fill-current" />
+                  </div>
+                  <div>
+                    <h3 className="font-serif font-bold text-sm text-editorial-text">
+                      관리자 전용 AI 마케팅 원고 & 쇼츠 제작 스튜디오
+                    </h3>
+                    <p className="text-xs text-editorial-muted">
+                      네이버 블로그, 티스토리 및 유튜브 쇼츠 홍보를 위한 고품질 한국어 바이럴 콘텐츠를 자동 생성합니다.
+                    </p>
+                  </div>
+                </div>
+                <span className="self-start sm:self-auto text-[10px] font-mono bg-amber-400 text-black px-2.5 py-1 rounded-xs font-black tracking-wider">
+                  ADMIN ONLY
+                </span>
+              </div>
+
+              <div className="bg-white rounded-sm border border-editorial-border p-2 sm:p-4">
+                <AiContentGenerator
+                  initialTopic={initialCreatorTopic}
+                  onOpenCreditModal={onOpenCreditModal}
+                  credits={userStats?.credits ?? 999}
+                  onSpendCredits={onSpendCredits}
+                />
               </div>
             </div>
           )}

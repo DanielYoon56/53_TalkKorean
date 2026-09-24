@@ -157,3 +157,82 @@ export interface PronunciationScore {
     user: number;
   }[];
 }
+
+export interface GeneratedBlogSection {
+  heading: string;
+  headingEn?: string;
+  content: string;
+  contentEn?: string;
+  highlightQuote?: string;
+  highlightQuoteEn?: string;
+  koreanVocabulary?: Array<{
+    word: string;
+    romanization?: string;
+    hanjaOrOrigin?: string;
+    meaning: string;
+    example: string;
+    exampleEn?: string;
+  }>;
+}
+
+export interface GeneratedBlogPromo {
+  title: string;
+  titleEn?: string;
+  description: string;
+  descriptionEn?: string;
+  url: string;
+}
+
+export interface GeneratedBlogPost {
+  titleSuggestions: string[];
+  selectedTitle: string;
+  selectedTitleEn?: string;
+  metaDescription: string;
+  metaDescriptionEn?: string;
+  readingTime: string;
+  targetAudience: string;
+  hook: string;
+  hookEn?: string;
+  sections: GeneratedBlogSection[];
+  culturalNuance: string;
+  culturalNuanceEn?: string;
+  conclusion: string;
+  conclusionEn?: string;
+  callToAction: string;
+  callToActionEn?: string;
+  hashtags: string[];
+  appPromoLink?: string;
+  promoBanner?: GeneratedBlogPromo;
+}
+
+export interface GeneratedShortsScene {
+  sceneNumber: number;
+  timeRange: string;
+  visual: string;
+  narrationKo: string;
+  narrationEn: string;
+  captionText: string;
+  captionTextEn?: string;
+  sfx: string;
+}
+
+export interface GeneratedShortsScript {
+  title: string;
+  titleEn?: string;
+  estimatedDuration: string;
+  thumbnailHook: string;
+  thumbnailHookEn?: string;
+  bgmSuggestion: string;
+  retentionTip: string;
+  scenes: GeneratedShortsScene[];
+  fullScriptKo: string;
+  fullScriptEn: string;
+  appPromoLink?: string;
+  pinnedCommentKo?: string;
+  pinnedCommentEn?: string;
+  videoDescriptionKo?: string;
+  videoDescriptionEn?: string;
+  socialPromoPostKo?: string;
+  socialPromoPostEn?: string;
+}
+

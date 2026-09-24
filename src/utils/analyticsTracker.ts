@@ -461,7 +461,7 @@ export function getAnalyticsSummary(period: 'today' | '7d' | '30d' | 'all' = '7d
   const funnelSteps = [
     { step: '1. 사이트 접속 (Site Visit)', count: totalVisits, rate: 100 },
     { step: '2. K-콘텐츠 & 진단 체험 (Explore)', count: practiceVisits, rate: Number(((practiceVisits / baseCount) * 100).toFixed(1)) },
-    { step: '3. AI 튜터 & 첨삭 대화 (AI Practice)', count: aiTutorVisits, rate: Number(((aiTutorVisits / baseCount) * 100).toFixed(1)) },
+    { step: '3. 실전 회화 & 첨삭 대화 (Practice)', count: aiTutorVisits, rate: Number(((aiTutorVisits / baseCount) * 100).toFixed(1)) },
     { step: '4. 크레딧 상점 확인 (Store Viewed)', count: storeVisits, rate: Number(((storeVisits / baseCount) * 100).toFixed(1)) },
     { step: '5. 크레딧 충전 완료 (Recharged)', count: purchases, rate: Number(((purchases / baseCount) * 100).toFixed(1)) }
   ];

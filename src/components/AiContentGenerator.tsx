@@ -5,7 +5,7 @@ import {
   Send, Layers, Zap, Hash, MessageSquare, Play, Square,
   Download, Lightbulb, Eye, Film, Sliders, ChevronRight, ExternalLink
 } from 'lucide-react';
-import { GeneratedBlogPost, GeneratedShortsScript, CURATED_TOPIC_TEMPLATES, DEFAULT_APP_PROMO_URL } from '../data/curatedContentTemplates';
+import { GeneratedBlogPost, GeneratedShortsScript, CURATED_TOPIC_TEMPLATES, DEFAULT_APP_PROMO_URL, findCuratedTopic, synthesizeDynamicContent, removeAppLinksFromText } from '../data/curatedContentTemplates';
 import { speakText, stopSpeech } from '../utils/tts';
 
 interface AiContentGeneratorProps {
@@ -58,6 +58,20 @@ const PRESET_TOPICS = [
     category: 'food',
     icon: '🍜',
     badge: 'K-FOOD'
+  },
+  {
+    label: '눈치(Nunchi) 문화',
+    topic: "한국 사회의 초능력 처세술 '눈치(Nunchi)'와 분위기 파악의 미학",
+    category: 'culture',
+    icon: '👀',
+    badge: 'K-처세술'
+  },
+  {
+    label: '한강라면 & 치맥',
+    topic: "한강공원에서 먹는 즉석 은박지 뽀글이 라면과 치맥 문화의 매력",
+    category: 'food',
+    icon: '🌉',
+    badge: 'K-미식'
   }
 ];
 
@@ -85,12 +99,15 @@ export default function AiContentGenerator({
   const [isPlayingAudio, setIsPlayingAudio] = useState<boolean>(false);
   const [activePlayingScene, setActivePlayingScene] = useState<number | null>(null);
 
-  // Initialize with curated Sonagi template if available
+  // Initialize with topic's matching template
   React.useEffect(() => {
-    if (!generatedBlog && CURATED_TOPIC_TEMPLATES['소나기']) {
-      setGeneratedBlog(CURATED_TOPIC_TEMPLATES['소나기'].blog);
-      setGeneratedShorts(CURATED_TOPIC_TEMPLATES['소나기'].shorts);
-      setSourceType('curated-intelligence');
+    if (!generatedBlog) {
+      const matched = findCuratedTopic(topic) || '소나기';
+      if (CURATED_TOPIC_TEMPLATES[matched]) {
+        setGeneratedBlog(CURATED_TOPIC_TEMPLATES[matched].blog);
+        setGeneratedShorts(CURATED_TOPIC_TEMPLATES[matched].shorts);
+        setSourceType('curated-intelligence');
+      }
     }
   }, []);
 
@@ -136,10 +153,14 @@ export default function AiContentGenerator({
         })
       });
 
-      const data = await res.json();
-      if (data.blog) setGeneratedBlog(data.blog);
-      if (data.shorts) setGeneratedShorts(data.shorts);
-      setSourceType(data.source || 'gemini-3.8-flash');
+      if (res.ok) {
+        const data = await res.json();
+        if (data.blog) setGeneratedBlog(data.blog);
+        if (data.shorts) setGeneratedShorts(data.shorts);
+        setSourceType(data.source || 'gemini-3.8-flash');
+      } else {
+        throw new Error('API server returned error status');
+      }
 
       if (mode === 'shorts') {
         setActiveResultTab('shorts');
@@ -147,8 +168,27 @@ export default function AiContentGenerator({
         setActiveResultTab('blog');
       }
     } catch (err) {
-      console.error('[Generate Content Error]:', err);
-      alert('콘텐츠 생성 중 오류가 발생했습니다. 다시 시도해주세요.');
+      console.warn('[Generate Content Fallback Triggered]:', err);
+      // Resilient synthesis fallback: ensure user ALWAYS gets instant, topic-tailored content
+      const matchedKey = findCuratedTopic(topic);
+      if (matchedKey && CURATED_TOPIC_TEMPLATES[matchedKey]) {
+        setGeneratedBlog(CURATED_TOPIC_TEMPLATES[matchedKey].blog);
+        setGeneratedShorts(CURATED_TOPIC_TEMPLATES[matchedKey].shorts);
+        setSourceType('curated-intelligence');
+      } else {
+        const currentOrigin = (typeof window !== 'undefined' && window.location.origin && window.location.origin.startsWith('http'))
+          ? window.location.origin
+          : DEFAULT_APP_PROMO_URL;
+        const synthetic = synthesizeDynamicContent(topic, category, tone, currentOrigin);
+        setGeneratedBlog(synthetic.blog);
+        setGeneratedShorts(synthetic.shorts);
+        setSourceType('dynamic-synthesizer');
+      }
+      if (mode === 'shorts') {
+        setActiveResultTab('shorts');
+      } else {
+        setActiveResultTab('blog');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -259,6 +299,12 @@ export default function AiContentGenerator({
                     onClick={() => {
                       setTopic(preset.topic);
                       setCategory(preset.category);
+                      const matched = findCuratedTopic(preset.topic);
+                      if (matched && CURATED_TOPIC_TEMPLATES[matched]) {
+                        setGeneratedBlog(CURATED_TOPIC_TEMPLATES[matched].blog);
+                        setGeneratedShorts(CURATED_TOPIC_TEMPLATES[matched].shorts);
+                        setSourceType('curated-intelligence');
+                      }
                     }}
                     className={`p-2 rounded-lg border text-left transition-all cursor-pointer flex items-start space-x-2 ${
                       topic === preset.topic
@@ -490,9 +536,11 @@ export default function AiContentGenerator({
                     <button
                       type="button"
                       onClick={() => {
+                        const cleanConclusion = removeAppLinksFromText(generatedBlog.conclusion);
+                        const cleanCta = removeAppLinksFromText(generatedBlog.callToAction);
                         const fullMarkdown = `# ${generatedBlog.selectedTitle}\n\n> ${generatedBlog.metaDescription}\n\n${generatedBlog.hook}\n\n` +
                           generatedBlog.sections.map(s => `## ${s.heading}\n\n${s.content}\n\n> ${s.highlightQuote || ''}\n`).join('\n') +
-                          `\n\n### 문화적 맥락\n${generatedBlog.culturalNuance}\n\n### 맺음말\n${generatedBlog.conclusion}\n\n${generatedBlog.callToAction}\n\n---\n\n### 🇰🇷 TalkKorean - AI 원어민 한국어 튜터 & 발음 교정\n실시간 원어민 AI 튜터와 1:1 회화 및 발음 분석을 지금 무료로 시작해보세요!\n👉 [TalkKorean 공식 앱 바로가기]: ${appPromoLink}\n\n${generatedBlog.hashtags.join(' ')}`;
+                          `\n\n### 문화적 맥락\n${generatedBlog.culturalNuance}\n\n### 맺음말\n${cleanConclusion}\n\n💬 ${cleanCta}\n\n---\n\n💡 [TalkKorean 공식 앱에서 실전 회화 & 발음 교정을 지금 체험해보세요!]\n👉 TalkKorean 공식 앱 바로가기: ${appPromoLink}\n\n${generatedBlog.hashtags.join(' ')}`;
                         handleCopy(fullMarkdown, 'full_blog');
                       }}
                       className="px-3 py-1 bg-neutral-900 hover:bg-neutral-800 text-white text-xs font-bold rounded cursor-pointer transition-colors flex items-center space-x-1.5 shadow-xs"
@@ -608,13 +656,84 @@ export default function AiContentGenerator({
               )}
 
               {/* Conclusion & CTA */}
-              <div className="border-t border-editorial-border pt-4 space-y-3 text-xs sm:text-sm">
+              <div className="border-t border-editorial-border pt-4 space-y-4 text-xs sm:text-sm">
                 <div>
-                  <h4 className="font-bold text-neutral-900 mb-1">맺음말</h4>
-                  <p className="text-neutral-700 leading-relaxed">{generatedBlog.conclusion}</p>
+                  <h4 className="font-bold text-neutral-900 mb-1.5 flex items-center space-x-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+                    <span>맺음말</span>
+                  </h4>
+                  <p className="text-neutral-800 leading-relaxed text-sm sm:text-base font-normal tracking-tight border-l-2 border-amber-400 pl-3.5 my-2 bg-amber-50/30 py-1.5 rounded-r-md">
+                    {removeAppLinksFromText(generatedBlog.conclusion)}
+                  </p>
                 </div>
-                <div className="p-3 bg-amber-100/60 rounded-lg text-amber-950 font-medium">
-                  💬 {generatedBlog.callToAction}
+                <div className="space-y-3">
+                  {/* Community Discussion Box */}
+                  <div className="p-4 bg-amber-50/80 border border-amber-200/90 rounded-xl text-neutral-900 shadow-2xs space-y-1.5">
+                    <div className="text-xs font-bold text-amber-900 flex items-center space-x-1.5">
+                      <MessageSquare className="w-3.5 h-3.5 text-amber-600" />
+                      <span>독자 소통 & 댓글 유도</span>
+                    </div>
+                    <p className="text-sm font-semibold text-amber-950 leading-relaxed">
+                      💬 {removeAppLinksFromText(generatedBlog.callToAction)}
+                    </p>
+                  </div>
+
+                  {/* TalkKorean Official App Conversion Banner */}
+                  <div className="p-4 sm:p-5 bg-neutral-900 text-white rounded-xl border border-neutral-800 shadow-md space-y-3">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <div className="space-y-1">
+                        <div className="inline-flex items-center space-x-1.5 px-2.5 py-0.5 rounded-full bg-amber-400/20 text-amber-300 text-[11px] font-bold border border-amber-400/30">
+                          <Sparkles className="w-3 h-3 text-amber-400" />
+                          <span>TalkKorean 공식 앱 실전 체험</span>
+                        </div>
+                        <h5 className="text-sm sm:text-base font-bold text-neutral-100 flex flex-wrap items-center gap-1.5 pt-0.5">
+                          <span>💡 [TalkKorean 공식 앱에서 실전 회화 & 발음 교정을 지금 체험해보세요!]</span>
+                          <span className="text-amber-400 text-xs font-medium">💡 [Practice real-life Korean conversation 1:1]</span>
+                        </h5>
+                        <p className="text-xs text-neutral-300 font-mono flex items-center space-x-1.5 pt-0.5">
+                          <span className="text-neutral-400">공식 앱 링크:</span>
+                          <a
+                            href={appPromoLink}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-amber-300 hover:text-amber-200 underline underline-offset-2 transition-colors break-all"
+                          >
+                            {appPromoLink}
+                          </a>
+                        </p>
+                      </div>
+
+                      <div className="flex items-center space-x-2 shrink-0 pt-1 sm:pt-0">
+                        <button
+                          type="button"
+                          onClick={() => handleCopy(appPromoLink, 'blog_cta_promo_link')}
+                          className="px-3 py-2 bg-neutral-800 hover:bg-neutral-700 text-neutral-200 text-xs font-bold rounded-lg transition-colors flex items-center space-x-1.5 border border-neutral-700 cursor-pointer shadow-2xs"
+                          title="공식 앱 링크 복사"
+                        >
+                          {copiedKey === 'blog_cta_promo_link' ? (
+                            <>
+                              <Check className="w-3.5 h-3.5 text-emerald-400" />
+                              <span className="text-emerald-400 font-semibold">복사 완료</span>
+                            </>
+                          ) : (
+                            <>
+                              <Copy className="w-3.5 h-3.5 text-neutral-400" />
+                              <span>링크 복사</span>
+                            </>
+                          )}
+                        </button>
+                        <a
+                          href={appPromoLink}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="px-4 py-2 bg-amber-500 hover:bg-amber-400 active:bg-amber-600 text-neutral-950 text-xs font-bold rounded-lg transition-all flex items-center space-x-1.5 shadow-sm cursor-pointer"
+                        >
+                          <span>지금 체험하기</span>
+                          <ExternalLink className="w-3.5 h-3.5" />
+                        </a>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
 
@@ -848,7 +967,7 @@ export default function AiContentGenerator({
                       type="button"
                       onClick={() => {
                         const pinnedText = generatedShorts.pinnedCommentKo ||
-                          `📌 [고정 댓글]\n오늘 배운 한국어 표현, AI 원어민 튜터와 입으로 직접 말하며 연습해보세요!\n👉 TalkKorean 공식 앱 무료 체험하기: ${appPromoLink}\n#TalkKorean #한국어공부 #KCulture`;
+                          `📌 [고정 댓글]\n오늘 배운 한국어 표현, 입으로 직접 말하며 실전 회화와 발음을 연습해보세요!\n👉 TalkKorean 공식 앱 무료 체험하기: ${appPromoLink}\n#TalkKorean #한국어공부 #KCulture`;
                         handleCopy(pinnedText, 'pinned_comment');
                       }}
                       className="px-2.5 py-1 bg-amber-900 text-white rounded text-xs font-bold cursor-pointer hover:bg-amber-800 flex items-center space-x-1 shadow-2xs"
@@ -859,7 +978,7 @@ export default function AiContentGenerator({
                   </div>
                   <div className="bg-white p-3 rounded-lg border border-amber-200 text-xs text-neutral-800 whitespace-pre-line leading-relaxed font-sans">
                     {generatedShorts.pinnedCommentKo ||
-                      `📌 [고정 댓글]\n오늘 배운 한국어 표현, AI 원어민 튜터와 입으로 직접 말하며 연습해보세요!\n👉 TalkKorean 공식 앱 무료 체험하기: ${appPromoLink}\n#TalkKorean #한국어공부 #KCulture`}
+                      `📌 [고정 댓글]\n오늘 배운 한국어 표현, 입으로 직접 말하며 실전 회화와 발음을 연습해보세요!\n👉 TalkKorean 공식 앱 무료 체험하기: ${appPromoLink}\n#TalkKorean #한국어공부 #KCulture`}
                   </div>
                 </div>
 
@@ -873,7 +992,7 @@ export default function AiContentGenerator({
                       type="button"
                       onClick={() => {
                         const descText = generatedShorts.videoDescriptionKo ||
-                          `🎬 영상 속 표현과 문화 배경을 더 깊이 배우고 싶다면?\n실시간 24시간 원어민 AI 튜터 1:1 대화 & 정밀 발음 분석이 가능한 TalkKorean 앱을 확인하세요!\n👉 공식 앱 바로가기: ${appPromoLink}\n\n#TalkKorean #한국어 #Shorts`;
+                          `🎬 영상 속 표현과 문화 배경을 더 깊이 배우고 싶다면?\n실시간 24시간 실전 1:1 대화 & 정밀 발음 분석이 가능한 TalkKorean 앱을 확인하세요!\n👉 공식 앱 바로가기: ${appPromoLink}\n\n#TalkKorean #한국어 #Shorts`;
                         handleCopy(descText, 'video_desc');
                       }}
                       className="px-2.5 py-1 bg-rose-900 text-white rounded text-xs font-bold cursor-pointer hover:bg-rose-800 flex items-center space-x-1 shadow-2xs"
@@ -884,7 +1003,7 @@ export default function AiContentGenerator({
                   </div>
                   <div className="bg-white p-3 rounded-lg border border-rose-200 text-xs text-neutral-800 whitespace-pre-line leading-relaxed font-sans">
                     {generatedShorts.videoDescriptionKo ||
-                      `🎬 영상 속 표현과 문화 배경을 더 깊이 배우고 싶다면?\n실시간 24시간 원어민 AI 튜터 1:1 대화 & 정밀 발음 분석이 가능한 TalkKorean 앱을 확인하세요!\n👉 공식 앱 바로가기: ${appPromoLink}\n\n#TalkKorean #한국어 #Shorts`}
+                      `🎬 영상 속 표현과 문화 배경을 더 깊이 배우고 싶다면?\n실시간 24시간 실전 1:1 대화 & 정밀 발음 분석이 가능한 TalkKorean 앱을 확인하세요!\n👉 공식 앱 바로가기: ${appPromoLink}\n\n#TalkKorean #한국어 #Shorts`}
                   </div>
                 </div>
               </div>
@@ -915,7 +1034,7 @@ export default function AiContentGenerator({
                   <button
                     type="button"
                     onClick={() => {
-                      const postText = `🇰🇷 ${generatedBlog?.selectedTitle || generatedShorts?.title || '한국어 & K-컬처 이야기'}\n\n${generatedBlog?.hook || generatedShorts?.thumbnailHook || ''}\n\n실시간 24시간 AI 원어민 튜터와 함께 한국어 발음과 회화를 무료로 연습해 보세요!\n👉 TalkKorean 공식 앱: ${appPromoLink}\n\n${(generatedBlog?.hashtags || []).join(' ')} #TalkKorean #한국어배우기 #KCulture`;
+                      const postText = `🇰🇷 ${generatedBlog?.selectedTitle || generatedShorts?.title || '한국어 & K-컬처 이야기'}\n\n${generatedBlog?.hook || generatedShorts?.thumbnailHook || ''}\n\n실시간 24시간 한국어 발음과 실전 회화를 무료로 연습해 보세요!\n👉 TalkKorean 공식 앱: ${appPromoLink}\n\n${(generatedBlog?.hashtags || []).join(' ')} #TalkKorean #한국어배우기 #KCulture`;
                       handleCopy(postText, 'social_promo_post');
                     }}
                     className="px-3 py-1 bg-amber-500 hover:bg-amber-600 text-white rounded text-xs font-bold cursor-pointer transition-colors flex items-center space-x-1 shadow-2xs"
@@ -925,7 +1044,7 @@ export default function AiContentGenerator({
                   </button>
                 </div>
                 <div className="bg-black/50 p-3 rounded-lg border border-neutral-700 text-xs text-neutral-200 leading-relaxed font-sans whitespace-pre-line">
-                  {`🇰🇷 ${generatedBlog?.selectedTitle || generatedShorts?.title || '한국어 & K-컬처 이야기'}\n\n${generatedBlog?.hook || generatedShorts?.thumbnailHook || ''}\n\n실시간 24시간 AI 원어민 튜터와 함께 한국어 발음과 회화를 무료로 연습해 보세요!\n👉 TalkKorean 공식 앱: ${appPromoLink}\n\n${(generatedBlog?.hashtags || []).join(' ')} #TalkKorean #한국어배우기 #KCulture`}
+                  {`🇰🇷 ${generatedBlog?.selectedTitle || generatedShorts?.title || '한국어 & K-컬처 이야기'}\n\n${generatedBlog?.hook || generatedShorts?.thumbnailHook || ''}\n\n실시간 24시간 한국어 발음과 실전 회화를 무료로 연습해 보세요!\n👉 TalkKorean 공식 앱: ${appPromoLink}\n\n${(generatedBlog?.hashtags || []).join(' ')} #TalkKorean #한국어배우기 #KCulture`}
                 </div>
               </div>
 

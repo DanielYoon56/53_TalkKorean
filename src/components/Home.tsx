@@ -59,14 +59,6 @@ export default function Home({ setActiveTab, onSelectKCultureCategory }: HomePro
             </button>
 
             <button
-              onClick={() => setActiveTab('AiCreator')}
-              className="px-5 py-3.5 bg-amber-500 hover:bg-amber-400 text-black border border-amber-600 rounded-sm font-extrabold tracking-wider text-xs uppercase transition-all flex items-center justify-center space-x-2 cursor-pointer shadow-sm"
-            >
-              <Sparkles className="w-4 h-4 text-black fill-black" />
-              <span>AI 블로그 & 쇼츠 생성기</span>
-            </button>
-
-            <button
               onClick={() => setActiveTab('LyricsLab')}
               className="px-6 py-3.5 bg-white border border-editorial-border hover:bg-editorial-accent-light text-editorial-text rounded-sm font-bold tracking-wider text-xs uppercase transition-all flex items-center justify-center space-x-2 cursor-pointer"
             >
