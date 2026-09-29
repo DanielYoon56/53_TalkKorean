@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { BookOpen, Volume2, CheckCircle2, AlertCircle, HelpCircle } from 'lucide-react';
+import { BookOpen, Volume2, CheckCircle2, AlertCircle, HelpCircle, Search, ExternalLink, Sparkles } from 'lucide-react';
 import { speakKoreanText } from '../../utils/tts';
+import DynamicGrammarEngine from './DynamicGrammarEngine';
 
 interface Example {
   korean: string;
@@ -162,9 +163,18 @@ function renderRedEnglish(text: string, targets: string[] = []) {
   );
 }
 
+const KCENTER_GRAMMAR_SEARCH_URL = "https://kcenter.korean.go.kr/kcenter/search/dgrammar.do?mode=&id=&srchChosung=%E3%84%B1&searchCategory=&searchGrade=&searchTabMenu=&searchChineseYn=&curPage=1&srchKey=headword&srchKeyword=";
+
+const getKCenterSearchUrl = (keyword?: string) => {
+  if (!keyword) return KCENTER_GRAMMAR_SEARCH_URL;
+  return `https://kcenter.korean.go.kr/kcenter/search/dgrammar.do?mode=&id=&srchChosung=&searchCategory=&searchGrade=&searchTabMenu=&searchChineseYn=&curPage=1&srchKey=headword&srchKeyword=${encodeURIComponent(keyword)}`;
+};
+
 export default function GrammarMenu({ onOpenHonorifics, credits = 0, onSpendCredits, onOpenCreditModal }: GrammarMenuProps = {}) {
   const [activeTopicId, setActiveTopicId] = useState<string>('particles');
   const [selectedQuizAnswer, setSelectedQuizAnswer] = useState<number | null>(null);
+  const [viewMode, setViewMode] = useState<'topics' | 'dynamicEngine'>('topics');
+  const [kcenterKeyword, setKcenterKeyword] = useState<string>('');
 
   const topics: GrammarTopic[] = [
     {
@@ -670,7 +680,7 @@ export default function GrammarMenu({ onOpenHonorifics, credits = 0, onSpendCred
 
   return (
     <div className="space-y-6">
-      {/* Top Banner with Clean Red Highlight Indicator */}
+      {/* Top Banner with Clean Red Highlight Indicator & Official Search Link */}
       <div className="bg-white border border-editorial-border rounded-sm p-6 space-y-4 shadow-xs">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex items-center space-x-3">
@@ -678,8 +688,21 @@ export default function GrammarMenu({ onOpenHonorifics, credits = 0, onSpendCred
               <BookOpen className="w-5 h-5" />
             </div>
             <div>
-              <div className="flex items-center space-x-2">
-                <h2 className="text-xl font-serif font-bold text-editorial-text">Korean Grammar (핵심 문법 & 조사)</h2>
+              <div className="flex flex-wrap items-center gap-2">
+                <h2 className="text-xl font-serif font-bold text-editorial-text inline-flex flex-wrap items-center gap-2">
+                  <span>Korean Grammar (핵심 문법 & 조사)</span>
+                  <a
+                    href={KCENTER_GRAMMAR_SEARCH_URL}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center space-x-1.5 px-2.5 py-0.5 bg-red-600 hover:bg-red-700 text-white rounded text-xs font-sans font-semibold transition-all shadow-xs cursor-pointer ml-1"
+                    title="국립국어원 한국어교수학습샘터 문법 검색 바로가기"
+                  >
+                    <Search className="w-3.5 h-3.5 text-white" />
+                    <span>국립국어원 문법 검색링크</span>
+                    <ExternalLink className="w-3 h-3 text-red-200" />
+                  </a>
+                </h2>
                 <span className="px-2 py-0.5 bg-red-50 text-red-600 border border-red-200 rounded text-[10px] font-bold">
                   문법 요소 적색 표기
                 </span>
@@ -687,61 +710,152 @@ export default function GrammarMenu({ onOpenHonorifics, credits = 0, onSpendCred
               <p className="text-xs text-editorial-muted mt-0.5">
                 한국어 문장 속 조사, 연결어미, 시제 형태소, 존칭 접미사를 <strong className="text-red-600 font-bold">적색</strong>으로 표시합니다.
               </p>
+
+              {/* Quick direct search on KCenter */}
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  const targetUrl = getKCenterSearchUrl(kcenterKeyword.trim());
+                  window.open(targetUrl, '_blank', 'noopener,noreferrer');
+                }}
+                className="flex items-center gap-1.5 mt-2 max-w-md"
+              >
+                <div className="relative flex-1">
+                  <Search className="w-3.5 h-3.5 text-neutral-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    value={kcenterKeyword}
+                    onChange={(e) => setKcenterKeyword(e.target.value)}
+                    placeholder="국립국어원 검색어 입력 (예: -에 대해, -고 싶다)"
+                    className="w-full pl-8 pr-3 py-1 bg-editorial-bg border border-editorial-border rounded text-xs text-editorial-text placeholder:text-neutral-400 focus:outline-none focus:border-red-600 focus:bg-white transition-colors"
+                  />
+                </div>
+                <button
+                  type="submit"
+                  className="px-2.5 py-1 bg-neutral-900 hover:bg-red-700 text-white rounded text-xs font-semibold transition-colors flex items-center space-x-1 cursor-pointer shrink-0 shadow-2xs"
+                >
+                  <span>검색</span>
+                  <ExternalLink className="w-3 h-3 text-neutral-300" />
+                </button>
+                <a
+                  href={KCENTER_GRAMMAR_SEARCH_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-2.5 py-1 bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 rounded text-xs font-semibold transition-colors flex items-center space-x-1 cursor-pointer shrink-0"
+                  title="국립국어원 기본 검색링크 열기"
+                >
+                  <span>기본 링크</span>
+                  <ExternalLink className="w-3 h-3 text-red-500" />
+                </a>
+              </form>
             </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2 shrink-0">
+            <a
+              href={KCENTER_GRAMMAR_SEARCH_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center space-x-1.5 px-3.5 py-2 bg-neutral-900 hover:bg-red-700 text-white rounded-sm text-xs font-bold font-serif transition-colors shadow-xs"
+              title="국립국어원 한국어교수학습샘터 문법 검색 포털"
+            >
+              <Search className="w-3.5 h-3.5 text-red-300" />
+              <span>국립국어원 샘터 문법검색</span>
+              <ExternalLink className="w-3 h-3 text-neutral-300" />
+            </a>
           </div>
         </div>
 
-        {/* Visual Legend Bar */}
-        <div className="p-2.5 bg-editorial-bg border border-editorial-border rounded-sm text-xs text-editorial-text flex flex-wrap items-center gap-2">
-          <span className="font-semibold text-editorial-text">적색 표시 기준:</span>
-          <span>조사 (<span className="text-red-600 font-bold">은/는, 이/가, 을/를, 에, 에서</span>)</span>
-          <span className="text-neutral-300">•</span>
-          <span>어미 (<span className="text-red-600 font-bold">-아요/어요, 해요</span>)</span>
-          <span className="text-neutral-300">•</span>
-          <span>시제 (<span className="text-red-600 font-bold">-았/었어요, -(으)ㄹ 거예요</span>)</span>
-          <span className="text-neutral-300">•</span>
-          <span>존칭 (<span className="text-red-600 font-bold">-시-, -세요, 께서</span>)</span>
+        {/* View Mode Toggle: Core Grammar Lessons vs DynamicGrammarEngine */}
+        <div className="flex items-center border-b border-editorial-border pt-1 gap-2">
+          <button
+            onClick={() => setViewMode('topics')}
+            className={`pb-2.5 px-3 text-xs font-bold font-serif transition-all cursor-pointer flex items-center space-x-1.5 border-b-2 ${
+              viewMode === 'topics'
+                ? 'border-red-600 text-red-600'
+                : 'border-transparent text-editorial-muted hover:text-editorial-text'
+            }`}
+          >
+            <BookOpen className="w-3.5 h-3.5" />
+            <span>기본 문법 코스 (Level 1~8)</span>
+          </button>
+          <button
+            onClick={() => setViewMode('dynamicEngine')}
+            className={`pb-2.5 px-3 text-xs font-bold font-serif transition-all cursor-pointer flex items-center space-x-1.5 border-b-2 ${
+              viewMode === 'dynamicEngine'
+                ? 'border-red-600 text-red-600'
+                : 'border-transparent text-editorial-muted hover:text-editorial-text'
+            }`}
+          >
+            <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+            <span>AI 실시간 문법 분석 (DynamicGrammarEngine)</span>
+            <span className="px-1.5 py-0.2 bg-red-100 text-red-700 text-[9px] rounded font-bold">Live</span>
+          </button>
         </div>
 
-        {/* Topic Selectors */}
-        <div className="flex flex-wrap gap-2 pt-1">
-          {topics.map((t) => {
-            const isSelected = activeTopicId === t.id;
-            return (
-              <button
-                key={t.id}
-                onClick={() => {
-                  setActiveTopicId(t.id);
-                  setSelectedQuizAnswer(null);
-                }}
-                className={`px-3.5 py-2 rounded-sm text-xs font-bold transition-all cursor-pointer text-left border ${
-                  isSelected
-                    ? 'bg-editorial-text text-white border-editorial-text shadow-sm'
-                    : 'bg-editorial-bg border-editorial-border text-editorial-text hover:bg-red-50/40 hover:border-red-300'
-                }`}
-              >
-                <div className="flex items-center space-x-1.5">
-                  <span className="text-red-500 font-black">🔴</span>
-                  <span>{t.titleKo}</span>
-                </div>
-                <div className="flex items-center justify-between mt-0.5 gap-2">
-                  <span className={`text-[10px] font-normal ${isSelected ? 'text-neutral-300' : 'text-editorial-muted'}`}>
-                    {t.titleEn}
-                  </span>
-                  <span className={`text-[9px] font-bold px-1.5 rounded ${
-                    isSelected ? 'bg-red-500 text-white' : 'bg-red-50 text-red-600 border border-red-200'
-                  }`}>
-                    {t.badgeTag}
-                  </span>
-                </div>
-              </button>
-            );
-          })}
-        </div>
+        {viewMode === 'topics' && (
+          <>
+            {/* Visual Legend Bar */}
+            <div className="p-2.5 bg-editorial-bg border border-editorial-border rounded-sm text-xs text-editorial-text flex flex-wrap items-center gap-2">
+              <span className="font-semibold text-editorial-text">적색 표시 기준:</span>
+              <span>조사 (<span className="text-red-600 font-bold">은/는, 이/가, 을/를, 에, 에서</span>)</span>
+              <span className="text-neutral-300">•</span>
+              <span>어미 (<span className="text-red-600 font-bold">-아요/어요, 해요</span>)</span>
+              <span className="text-neutral-300">•</span>
+              <span>시제 (<span className="text-red-600 font-bold">-았/었어요, -(으)ㄹ 거예요</span>)</span>
+              <span className="text-neutral-300">•</span>
+              <span>존칭 (<span className="text-red-600 font-bold">-시-, -세요, 께서</span>)</span>
+            </div>
+
+            {/* Topic Selectors */}
+            <div className="flex flex-wrap gap-2 pt-1">
+              {topics.map((t) => {
+                const isSelected = activeTopicId === t.id;
+                return (
+                  <button
+                    key={t.id}
+                    onClick={() => {
+                      setActiveTopicId(t.id);
+                      setSelectedQuizAnswer(null);
+                    }}
+                    className={`px-3.5 py-2 rounded-sm text-xs font-bold transition-all cursor-pointer text-left border ${
+                      isSelected
+                        ? 'bg-editorial-text text-white border-editorial-text shadow-sm'
+                        : 'bg-editorial-bg border-editorial-border text-editorial-text hover:bg-red-50/40 hover:border-red-300'
+                    }`}
+                  >
+                    <div className="flex items-center space-x-1.5">
+                      <span className="text-red-500 font-black">🔴</span>
+                      <span>{t.titleKo}</span>
+                    </div>
+                    <div className="flex items-center justify-between mt-0.5 gap-2">
+                      <span className={`text-[10px] font-normal ${isSelected ? 'text-neutral-300' : 'text-editorial-muted'}`}>
+                        {t.titleEn}
+                      </span>
+                      <span className={`text-[9px] font-bold px-1.5 rounded ${
+                        isSelected ? 'bg-red-500 text-white' : 'bg-red-50 text-red-600 border border-red-200'
+                      }`}>
+                        {t.badgeTag}
+                      </span>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </>
+        )}
       </div>
 
-      {/* Main Topic Content */}
-      <div className="bg-white border border-editorial-border rounded-sm p-6 space-y-6">
+      {viewMode === 'dynamicEngine' ? (
+        <DynamicGrammarEngine
+          onSelectTopic={(tId) => {
+            setActiveTopicId(tId);
+            setViewMode('topics');
+          }}
+        />
+      ) : (
+        /* Main Topic Content */
+        <div className="bg-white border border-editorial-border rounded-sm p-6 space-y-6">
         {/* Title & Level */}
         <div className="border-b border-editorial-border pb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
@@ -759,13 +873,38 @@ export default function GrammarMenu({ onOpenHonorifics, credits = 0, onSpendCred
             <p className="text-sm text-editorial-muted font-medium">{currentTopic.titleEn}</p>
           </div>
 
-          <div className="flex flex-wrap items-center gap-1.5 text-xs text-editorial-muted">
-            <span className="font-semibold text-editorial-text">핵심 문법 요소:</span>
-            {currentTopic.ruleElements.map((kw, i) => (
-              <span key={i} className="text-red-600 font-bold">
-                {kw}{i < currentTopic.ruleElements.length - 1 ? ',' : ''}
-              </span>
-            ))}
+          <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+            <div className="flex flex-wrap items-center gap-1.5 text-xs text-editorial-muted">
+              <span className="font-semibold text-editorial-text">핵심 문법:</span>
+              {currentTopic.ruleElements.map((kw, i) => (
+                <span key={i} className="text-red-600 font-bold">
+                  {kw}{i < currentTopic.ruleElements.length - 1 ? ',' : ''}
+                </span>
+              ))}
+            </div>
+
+            <div className="flex items-center gap-2 pt-1 sm:pt-0">
+              <a
+                href={getKCenterSearchUrl(currentTopic.ruleElements?.[0] || currentTopic.badgeTag)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center space-x-1 px-2.5 py-1 bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 rounded text-[11px] font-semibold transition-all cursor-pointer shadow-2xs"
+                title={`국립국어원 한국어교수학습샘터에서 '${currentTopic.titleKo}' 검색`}
+              >
+                <Search className="w-3 h-3 text-red-600" />
+                <span>샘터 검색: {currentTopic.ruleElements?.[0] || currentTopic.badgeTag}</span>
+                <ExternalLink className="w-2.5 h-2.5 text-red-400" />
+              </a>
+              <button
+                type="button"
+                onClick={() => setViewMode('dynamicEngine')}
+                className="inline-flex items-center space-x-1 px-2.5 py-1 bg-neutral-900 hover:bg-red-700 text-white rounded text-[11px] font-bold transition-all cursor-pointer shadow-2xs"
+                title="DynamicGrammarEngine으로 실시간 AI 분석"
+              >
+                <Sparkles className="w-3 h-3 text-amber-300" />
+                <span>AI 분석</span>
+              </button>
+            </div>
           </div>
         </div>
 
@@ -911,6 +1050,7 @@ export default function GrammarMenu({ onOpenHonorifics, credits = 0, onSpendCred
           )}
         </div>
       </div>
+      )}
     </div>
   );
 }

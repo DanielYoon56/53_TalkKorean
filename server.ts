@@ -448,6 +448,189 @@ Return STRICTLY a JSON object with this complete schema:
   app.post("/api/grammar/analyze", handleGrammarAnalysisRequest);
   app.post("/api/grammar/explain", handleGrammarAnalysisRequest);
 
+  // 1-C. API: Dynamic Grammar Engine Endpoint for DynamicGrammarEngine Component
+  app.post("/api/grammar/dynamic-engine", async (req, res) => {
+    try {
+      const rawQuery = (req.body.query || req.body.grammarQuery || "").toString().trim();
+      if (!rawQuery) {
+        return res.status(400).json({ error: "Grammar query is required" });
+      }
+
+      const query = rawQuery;
+      let analysisResult: any = null;
+      let source = "academic_linguistic_engine";
+
+      const ai = getGeminiClient();
+      if (ai) {
+        try {
+          const prompt = `You are an elite Korean linguistics professor and master pedagogue specializing in KSL (Korean as a Second Language) education, discourse analysis, and Korean literature.
+Analyze and explain the following user-submitted Korean grammar question or pattern in depth: "${query}".
+
+Analyze the exact context of use, authentic sample sentences across registers (colloquial, workplace, literature), nuanced semantic differences, grammatical constraints, learner difficulty/TOPIK level, common pedagogical traps, and pro-tips for native fluency.
+
+Return STRICTLY a JSON object with this complete schema:
+{
+  "title": "Clear, precise title of the grammar point (in Korean)",
+  "grammarTerm": "${query}",
+  "summary": "2-3 sentence core grammatical function & discourse role summary (in Korean)",
+  "context": {
+    "discourseSituation": "Realistic real-life situation where native speakers use this (in Korean)",
+    "speakerIntent": "The speaker's psychological motivation and communicative intent (in Korean)",
+    "formalityRegister": "Formality level and speech style requirements (in Korean)",
+    "socialNuance": "Interpersonal politeness, face-saving, or emotional nuance (in Korean)"
+  },
+  "examples": [
+    {
+      "korean": "Authentic natural Korean sentence reflecting this grammar",
+      "romanized": "Accurate Revised Romanization",
+      "english": "Natural English translation",
+      "contextTag": "Context tag (e.g. '일상 대화', '직장/비즈니스', '완곡한 거절')",
+      "breakdown": "Morphological dissection of key verbs/particles",
+      "whyUsed": "Pedagogical explanation of why this grammar was selected in this particular context"
+    },
+    {
+      "korean": "Second authentic Korean sentence",
+      "romanized": "Accurate Revised Romanization",
+      "english": "Natural English translation",
+      "contextTag": "Context tag",
+      "breakdown": "Morphological dissection",
+      "whyUsed": "Pedagogical explanation"
+    },
+    {
+      "korean": "Third authentic Korean sentence",
+      "romanized": "Accurate Revised Romanization",
+      "english": "Natural English translation",
+      "contextTag": "Context tag",
+      "breakdown": "Morphological dissection",
+      "whyUsed": "Pedagogical explanation"
+    }
+  ],
+  "levelUsage": {
+    "beginner": {
+      "title": "초급 (기본 패턴 및 감각 형성)",
+      "description": "기본 어휘와의 결합 및 직관적 쓰임 설명",
+      "focus": "핵심 형태소 결합 공식 숙지",
+      "example": "간단하고 전형적인 예문"
+    },
+    "intermediate": {
+      "title": "중급 (유사 문법 대조 및 뉘앙스 분별)",
+      "description": "유사 표현과의 차이점 및 문맥적 제약 설명",
+      "focus": "화자의 미묘한 심리와 대인관계 태도 조율",
+      "example": "상황에 맞춘 자연스러운 예문"
+    },
+    "advanced": {
+      "title": "고급 (격식/비격식 전환 및 복합 담화 응용)",
+      "description": "공식 석상, 비즈니스, 문학적 표현 등에서의 정교한 활용",
+      "focus": "사회언어학적 적절성 및 담화 전략 완성",
+      "example": "고급 담화 예문"
+    }
+  },
+  "topikTip": "Specific tip for TOPIK exam or real-life fluency",
+  "commonMistakes": [
+    {
+      "wrong": "Realistic error made by foreign learners (*with asterisk)",
+      "correct": "Natural native correction",
+      "why": "Clear linguistic explanation of the error"
+    }
+  ],
+  "proTip": "Memorable mnemonic rule or native intuition tip"
+}`;
+
+          const modelsToTry = ["gemini-flash-latest", "gemini-3.8-flash", "gemini-3.1-flash-lite"];
+          for (const m of modelsToTry) {
+            try {
+              const response = await ai.models.generateContent({
+                model: m,
+                contents: prompt,
+                config: {
+                  responseMimeType: "application/json",
+                },
+              });
+              const txt = response.text?.trim();
+              if (txt) {
+                const parsed = JSON.parse(txt);
+                if (parsed && parsed.title && parsed.context && parsed.examples && parsed.examples.length > 0) {
+                  analysisResult = parsed;
+                  source = "gemini_live";
+                  break;
+                }
+              }
+            } catch (mErr: any) {
+              console.warn(`[Gemini Model ${m} Dynamic Engine Notice]:`, mErr?.message || mErr);
+            }
+          }
+        } catch (aiErr: any) {
+          console.warn("[Gemini Dynamic Engine Notice]:", aiErr?.message || aiErr);
+        }
+      }
+
+      if (!analysisResult) {
+        // Fallback to linguistic engine
+        const curated = getCuratedOrDynamicGrammarAnalysis(query);
+        const examples = (curated.contextualExamples || []).map((ex) => ({
+          korean: ex.korean,
+          romanized: ex.romanized || "",
+          english: ex.english,
+          contextTag: ex.contextTag || "실제 일상 대화",
+          breakdown: ex.breakdown || `${query} 결합 형태소 분석`,
+          whyUsed: ex.whyUsed || "자연스러운 한국어 담화 맥락을 완성하기 위해 사용됨",
+        }));
+
+        while (examples.length < 3) {
+          examples.push({
+            korean: `상황에 맞춰 ${query} 표현을 자연스럽게 활용해 보세요.`,
+            romanized: "",
+            english: `Practice using '${query}' naturally in appropriate context.`,
+            contextTag: "확장 실전 연습",
+            breakdown: `${query} 실전 응용`,
+            whyUsed: "원어민 실생활 대화 표현 숙달",
+          });
+        }
+
+        analysisResult = {
+          title: curated.title,
+          grammarTerm: query,
+          summary: curated.summary,
+          context: {
+            discourseSituation: curated.contextAnalysis?.situations?.join(", ") || "실제 일상 대화 및 자연스러운 한국어 담화 상황",
+            speakerIntent: curated.contextAnalysis?.speakerIntent || "화자의 직관적인 평가 및 감정 전달",
+            formalityRegister: curated.contextAnalysis?.formality || "구어체 및 친근한 비격식체",
+            socialNuance: curated.contextAnalysis?.socialNuance || "부담을 주지 않으면서 완곡하게 의견을 전달하는 뉘앙스",
+          },
+          examples: examples.slice(0, 3),
+          levelUsage: {
+            beginner: {
+              title: "초급 (기본 패턴 및 감각 형성)",
+              description: "기본 어휘와의 결합 및 직관적 쓰임 파악",
+              focus: "기본적인 결합 공식 및 억양 숙지",
+              example: examples[0]?.korean || `오늘은 ${query} 느낌이 들어요.`,
+            },
+            intermediate: {
+              title: "중급 (유사 문법 대조 및 뉘앙스 분별)",
+              description: "유사 표현과의 차이점 및 문맥적 제약 이해",
+              focus: "화자의 미묘한 심리와 대인관계 태도 조율",
+              example: examples[1]?.korean || `처음에는 몰랐는데 계속 겪어보니 ${query} 생각이 들어요.`,
+            },
+            advanced: {
+              title: "고급 (격식/비격식 전환 및 복합 담화 응용)",
+              description: "공식 석상, 비즈니스, 문학적 표현 등에서의 정교한 활용",
+              focus: "사회언어학적 적절성 및 담화 전략 완성",
+              example: examples[2]?.korean || `상대방의 입장을 배려하면서도 솔직한 견해를 ${query} 형태로 정중하게 표현합니다.`,
+            },
+          },
+          topikTip: curated.pedagogicalGuide?.topikTip || "TOPIK 문맥 파악 및 문법 일관성 문항 빈출 표현입니다.",
+          commonMistakes: curated.commonMistakes,
+          proTip: curated.proTip,
+        };
+      }
+
+      return res.json({ ...analysisResult, engineSource: source });
+    } catch (err: any) {
+      console.error("[Dynamic Grammar Engine Error]:", err);
+      return res.status(500).json({ error: "실시간 문법 분석 처리 중 오류가 발생했습니다." });
+    }
+  });
+
   // 2. API: Explain Modern Korean Slang / Buzzwords (K-Slang)
   app.post("/api/explain-slang", async (req, res) => {
     try {

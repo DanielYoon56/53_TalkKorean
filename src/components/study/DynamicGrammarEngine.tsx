@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Sparkles, Search, Volume2, CheckCircle2, AlertCircle, BookOpen, Layers, Lightbulb, GraduationCap, ArrowRight, Loader2, RotateCcw } from 'lucide-react';
+import { Sparkles, Search, Volume2, CheckCircle2, AlertCircle, BookOpen, Layers, Lightbulb, GraduationCap, ArrowRight, Loader2, RotateCcw, ExternalLink } from 'lucide-react';
 import { speakKoreanText } from '../../utils/tts';
 
 export interface DynamicGrammarAnalysis {
@@ -132,6 +132,18 @@ export default function DynamicGrammarEngine({ onSelectTopic }: DynamicGrammarEn
             </p>
           </div>
         </div>
+
+        <a
+          href="https://kcenter.korean.go.kr/kcenter/search/dgrammar.do?mode=&id=&srchChosung=%E3%84%B1&searchCategory=&searchGrade=&searchTabMenu=&searchChineseYn=&curPage=1&srchKey=headword&srchKeyword="
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center space-x-1.5 px-3 py-1.5 bg-neutral-100 hover:bg-red-50 text-editorial-text hover:text-red-700 border border-neutral-300 hover:border-red-300 rounded text-xs font-semibold transition-all cursor-pointer shrink-0 shadow-2xs group"
+          title="국립국어원 한국어교수학습샘터 문법 검색 바로가기"
+        >
+          <Search className="w-3.5 h-3.5 text-neutral-500 group-hover:text-red-600 transition-colors" />
+          <span>국립국어원 문법 검색</span>
+          <ExternalLink className="w-3 h-3 text-neutral-400 group-hover:text-red-500" />
+        </a>
       </div>
 
       {/* Search Input Box */}
@@ -156,7 +168,7 @@ export default function DynamicGrammarEngine({ onSelectTopic }: DynamicGrammarEn
           <button
             type="submit"
             disabled={isLoading || !query.trim()}
-            className="px-5 py-2.5 bg-editorial-text hover:bg-red-700 text-white text-xs font-bold font-serif rounded-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-1.5 cursor-pointer shadow-xs"
+            className="px-5 py-2.5 bg-editorial-text hover:bg-red-700 text-white text-xs font-bold font-serif rounded-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-1.5 cursor-pointer shadow-xs shrink-0"
           >
             {isLoading ? (
               <>
@@ -170,6 +182,17 @@ export default function DynamicGrammarEngine({ onSelectTopic }: DynamicGrammarEn
               </>
             )}
           </button>
+          <a
+            href={query.trim() ? `https://kcenter.korean.go.kr/kcenter/search/dgrammar.do?mode=&id=&srchChosung=&searchCategory=&searchGrade=&searchTabMenu=&searchChineseYn=&curPage=1&srchKey=headword&srchKeyword=${encodeURIComponent(query.trim())}` : "https://kcenter.korean.go.kr/kcenter/search/dgrammar.do?mode=&id=&srchChosung=%E3%84%B1&searchCategory=&searchGrade=&searchTabMenu=&searchChineseYn=&curPage=1&srchKey=headword&srchKeyword="}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="px-3.5 py-2.5 bg-red-50 hover:bg-red-100 text-red-700 hover:text-red-800 border border-red-200 rounded-sm text-xs font-bold font-serif transition-colors flex items-center space-x-1.5 cursor-pointer shadow-xs shrink-0"
+            title="국립국어원 한국어교수학습샘터 문법 검색링크 열기"
+          >
+            <Search className="w-3.5 h-3.5 text-red-600" />
+            <span>샘터 검색</span>
+            <ExternalLink className="w-3 h-3 text-red-400" />
+          </a>
         </form>
 
         {/* Quick Suggestion Chips */}
