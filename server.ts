@@ -305,6 +305,27 @@ Sitemap: https://talkkorean.ai.studio/sitemap.xml
     }
   });
 
+  // Helper: Strip markdown asterisks and brackets from grammar responses
+  function cleanSpecialFormatting(obj: any): any {
+    if (typeof obj === 'string') {
+      return obj
+        .replace(/\*\*(.*?)\*\*/g, '$1')
+        .replace(/\*(.*?)\*/g, '$1')
+        .replace(/\[(.*?)\]/g, '$1');
+    }
+    if (Array.isArray(obj)) {
+      return obj.map(cleanSpecialFormatting);
+    }
+    if (obj && typeof obj === 'object') {
+      const res: any = {};
+      for (const k of Object.keys(obj)) {
+        res[k] = cleanSpecialFormatting(obj[k]);
+      }
+      return res;
+    }
+    return obj;
+  }
+
   // 1-B. API: Deep AI Grammar Nuance Analysis (Real-time Pedagogical & Contextual Linguistic Engine)
   const handleGrammarAnalysisRequest = async (req: express.Request, res: express.Response) => {
     try {
@@ -428,7 +449,7 @@ Return STRICTLY a JSON object with this complete schema:
             if (parsed && parsed.title && (parsed.summary || parsed.nuanceDifference)) {
               // Ensure all newly defined educational fields (difficulty, contextAnalysis, contextualExamples, pedagogicalGuide) are fully enriched
               const enriched = ensureEnrichedGrammarAnalysis(parsed, query);
-              return res.json({ ...enriched, engineSource: "gemini_live" });
+              return res.json(cleanSpecialFormatting({ ...enriched, engineSource: "gemini_live" }));
             }
           }
         } catch (aiErr: any) {
@@ -438,7 +459,7 @@ Return STRICTLY a JSON object with this complete schema:
 
       // High-precision curated and dynamic grammar intelligence engine (with full pedagogical enrichment)
       const curatedOrDynamic = getCuratedOrDynamicGrammarAnalysis(query);
-      return res.json({ ...curatedOrDynamic, engineSource: "academic_linguistic_engine" });
+      return res.json(cleanSpecialFormatting({ ...curatedOrDynamic, engineSource: "academic_linguistic_engine" }));
     } catch (err: any) {
       console.error("[Grammar Analysis Handler Error]:", err);
       return res.status(500).json({ error: "문법 분석 처리 중 오류가 발생했습니다." });
@@ -624,7 +645,7 @@ Return STRICTLY a JSON object with this complete schema:
         };
       }
 
-      return res.json({ ...analysisResult, engineSource: source });
+      return res.json(cleanSpecialFormatting({ ...analysisResult, engineSource: source }));
     } catch (err: any) {
       console.error("[Dynamic Grammar Engine Error]:", err);
       return res.status(500).json({ error: "실시간 문법 분석 처리 중 오류가 발생했습니다." });

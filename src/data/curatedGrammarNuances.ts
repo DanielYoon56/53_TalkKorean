@@ -1532,26 +1532,26 @@ export function ensureEnrichedGrammarAnalysis(raw: any, query: string): GrammarN
     if (isEnding) {
       contextualExamples = [
         {
-          korean: `선배가 들려준 조언을 바탕으로 대화 중에 [${cleanPattern}] 문법을 자연스럽게 결합해 보았습니다.`,
+          korean: `선배가 들려준 조언을 바탕으로 대화 중에 ${cleanPattern} 문법을 자연스럽게 결합해 보았습니다.`,
           romanized: `Seonbae-ga deullyeojun joeon-eul batang-euro daehwa jung-e munbeob-eul jayeonseureopge gyeolhaphae boasseumnida.`,
           english: `Based on the advice from my senior, I naturally combined the '${cleanPattern}' grammar during the conversation.`,
           contextTag: "실생활 회화 활용",
-          breakdown: `어간과 어미 [${cleanPattern}]의 정확한 음운 결합`,
+          breakdown: `어간과 어미 ${cleanPattern}의 정확한 음운 결합`,
           whyUsed: `상황의 미묘한 뉘앙스를 정확하고 부드럽게 살리기 위해 사용되었습니다.`
         },
         {
-          korean: `공식적인 글쓰기나 시험에서는 [${cleanPattern}]의 문맥상 호응 규칙을 정확히 준수하는 것이 핵심입니다.`,
+          korean: `공식적인 글쓰기나 시험에서는 ${cleanPattern}의 문맥상 호응 규칙을 정확히 준수하는 것이 핵심입니다.`,
           romanized: `Gongsikjeogin geulsseugi-na siheom-eseoneun munmaeksang houng gwichig-eul jeonghwakhi junsuhaneun geos-i haeksim-imnida.`,
           english: `In formal writing or examinations, adhering strictly to the contextual agreement rules of '${cleanPattern}' is essential.`,
           contextTag: "공식 작문 및 시험",
-          breakdown: `문장 성분과 [${cleanPattern}]의 적합성 일치`,
+          breakdown: `문장 성분과 ${cleanPattern}의 적합성 일치`,
           whyUsed: `문장의 신뢰도를 높이고 격식 있는 문맥을 완성하기 위해 사용됩니다.`
         }
       ];
     } else {
       contextualExamples = [
         {
-          korean: `주변 상황이 이렇게 복잡하게 흘러가니 지금으로서는 **${cleanPattern}**.`,
+          korean: `주변 상황이 이렇게 복잡하게 흘러가니 지금으로서는 ${cleanPattern}.`,
           romanized: `Jubyeon sanghwang-i ireohge heulleogani jigeum-euroseoneun ${cleanPattern}.`,
           english: `Given that surrounding circumstances are turning out this way, as of now, ${cleanPattern}.`,
           contextTag: "상황 진단 / 솔직한 토로",
@@ -1559,7 +1559,7 @@ export function ensureEnrichedGrammarAnalysis(raw: any, query: string): GrammarN
           whyUsed: `상황에 대한 솔직하고 직접적인 판단을 자연스럽게 전달하기 위해 쓰였습니다.`
         },
         {
-          korean: `친구가 깊은 고민을 털어놓길래 옆에서 손을 잡아주며 "**${cleanPattern}**"라고 따뜻하게 말해 주었습니다.`,
+          korean: `친구가 깊은 고민을 털어놓길래 옆에서 손을 잡아주며 "${cleanPattern}"라고 따뜻하게 말해 주었습니다.`,
           romanized: `Chingu-ga gipeun gomin-eul teoreonohgillae yeop-eseo son-eul jabajumyeo "${cleanPattern}"-rago ttatteuthage malhae jueosseumnida.`,
           english: `When my friend confided deep concerns, I held their hand and warmly comforted them saying "${cleanPattern}".`,
           contextTag: "대인 관계 / 친구 위로",
@@ -1567,7 +1567,7 @@ export function ensureEnrichedGrammarAnalysis(raw: any, query: string): GrammarN
           whyUsed: `상대방의 마음을 위로하고 안정감을 주기 위해 사용되었습니다.`
         },
         {
-          korean: `비록 처음 생각했던 결과와는 조금 차이가 나지만 냉정하게 보면 **${cleanPattern}**는 사실을 받아들였습니다.`,
+          korean: `비록 처음 생각했던 결과와는 조금 차이가 나지만 냉정하게 보면 ${cleanPattern} 사실을 받아들였습니다.`,
           romanized: `Birok cheo-eum saenggakhaetdeon gyeolgwa-waneun jogeum chaiga najiman naengjeonghage bomyeon sasil-eul badadeuryeosseumnida.`,
           english: `Although it differed slightly from what was initially expected, looking at it calmly, I accepted the reality that ${cleanPattern}.`,
           contextTag: "일상 성찰 / 현실 수용",
@@ -1608,7 +1608,7 @@ export function ensureEnrichedGrammarAnalysis(raw: any, query: string): GrammarN
         situation: "일상에서 서로의 솔직한 생각과 느낌을 나누는 대화",
         speakerA: `오늘 우리가 겪은 일에 대해 솔직하게 어떻게 생각해? 네 느낌이 궁금해.`,
         speakerATrans: "What do you honestly think about what we experienced today? I'm curious about your thoughts.",
-        speakerB: `처음에는 괜찮을 줄 알았는데 실제로 겪어보니 **${p}** 느낌이 강해서 다음에는 다르게 해보고 싶어.`,
+        speakerB: `처음에는 괜찮을 줄 알았는데 실제로 겪어보니 ${p} 느낌이 강해서 다음에는 다르게 해보고 싶어.`,
         speakerBTrans: `At first I thought it would be fine, but experiencing it in person gives a strong impression, so I'd like to try differently next time.`,
         nuanceNote: "상대방에게 부담을 주지 않으면서도 자신의 솔직한 평가를 자연스럽게 털어놓는 구어적 대화법입니다."
       }

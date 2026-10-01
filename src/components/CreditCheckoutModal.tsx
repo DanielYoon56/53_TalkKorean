@@ -126,7 +126,7 @@ export default function CreditCheckoutModal({
   const [selectedPlanId, setSelectedPlanId] = useState<string>('pro');
   
   // Payment Method Selection
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethodType>('kakaopay');
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethodType>('korea_card');
   const [selectedCurrency, setSelectedCurrency] = useState<Currency>('KRW');
 
   // Business & Go-Live States
@@ -641,7 +641,7 @@ export default function CreditCheckoutModal({
                 <div className="p-3 bg-gradient-to-r from-blue-50/70 via-indigo-50/50 to-amber-50/40 border border-blue-100 rounded-lg flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
                   <div className="text-[11px] text-blue-900 font-medium flex items-center space-x-1.5">
                     <Globe className="w-3.5 h-3.5 text-blue-600 shrink-0" />
-                    <span>국내 간편결제(카카오·네이버·토스) 및 해외 발급 카드(Visa, Master, JCB, AMEX)와 PayPal을 모두 지원합니다.</span>
+                    <span>국내 신용/체크카드 및 해외 발급 카드(Visa, Master, JCB, AMEX) 결제를 지원합니다.</span>
                   </div>
                   <div className="text-[10px] text-neutral-500 font-mono">
                     PCI-DSS Level 1 & 3D-Secure
@@ -653,14 +653,10 @@ export default function CreditCheckoutModal({
                   <label className="text-[11px] font-bold text-neutral-600 block uppercase tracking-wider">
                     결제 수단 선택 (Select Payment Method)
                   </label>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     {[
-                      { id: 'kakaopay', label: '카카오페이', icon: '🟡', desc: 'KakaoPay 1초 결제' },
-                      { id: 'naverpay', label: '네이버페이', icon: '🟢', desc: 'NaverPay 포인트 적립' },
-                      { id: 'tosspay', label: '토스페이', icon: '🔵', desc: 'TossPay 빠른 결제' },
-                      { id: 'korea_card', label: '국내 카드', icon: '💳', desc: '신한/KB/현대/삼성 등' },
-                      { id: 'foreign_card', label: '해외 카드 (Global)', icon: '🌐', desc: 'Visa, Master, JCB, Amex' },
-                      { id: 'paypal', label: 'PayPal Express', icon: '🅿️', desc: 'One-touch Global Pay' }
+                      { id: 'korea_card', label: '국내 카드', icon: '💳', desc: '신한/KB/현대/삼성/롯데/BC/우리/하나 등 모든 카드' },
+                      { id: 'foreign_card', label: '해외 카드 (Global)', icon: '🌐', desc: 'Visa, Master, JCB, Amex' }
                     ].map((m) => {
                       const active = paymentMethod === m.id;
                       return (
@@ -668,16 +664,16 @@ export default function CreditCheckoutModal({
                           key={m.id}
                           type="button"
                           onClick={() => setPaymentMethod(m.id as any)}
-                          className={`p-3 rounded-lg border text-left transition-all cursor-pointer flex items-center space-x-2.5 ${
+                          className={`p-3.5 rounded-lg border text-left transition-all cursor-pointer flex items-center space-x-3 ${
                             active
                               ? 'bg-amber-50/80 border-editorial-text shadow-xs ring-1 ring-editorial-text'
                               : 'bg-neutral-50/80 border-neutral-200 hover:bg-white hover:border-neutral-300'
                           }`}
                         >
-                          <span className="text-xl shrink-0">{m.icon}</span>
+                          <span className="text-2xl shrink-0">{m.icon}</span>
                           <div className="min-w-0">
                             <div className="text-xs font-bold text-neutral-900 truncate">{m.label}</div>
-                            <div className="text-[10px] text-neutral-500 truncate">{m.desc}</div>
+                            <div className="text-[11px] text-neutral-500 truncate">{m.desc}</div>
                           </div>
                         </button>
                       );
@@ -695,22 +691,6 @@ export default function CreditCheckoutModal({
                         토스페이먼츠 보안 창에서 해외 카드를 선택하여 전 세계 어디서든 안전하게 3D-Secure 2.0 승인으로 즉시 충전됩니다.
                       </p>
                     </div>
-                  </div>
-                )}
-
-                {paymentMethod === 'paypal' && (
-                  <div className="bg-[#003087]/5 border border-[#003087]/20 rounded-lg p-3 text-xs text-neutral-700 flex items-center justify-between">
-                    <div>
-                      <div className="font-bold text-[#003087]">PayPal One-Touch Fast Pay</div>
-                      <div className="text-[11px] text-neutral-600">PayPal 계정 로그인 또는 등록된 카드로 해외 결제를 진행합니다.</div>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setShowPayPalModal(true)}
-                      className="px-4 py-1.5 bg-[#FFC439] hover:bg-[#F2BA36] text-[#003087] font-extrabold rounded-full text-xs transition-all cursor-pointer shrink-0"
-                    >
-                      PayPal 열기
-                    </button>
                   </div>
                 )}
 

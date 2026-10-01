@@ -54,6 +54,77 @@ interface DynamicGrammarEngineProps {
   onSelectTopic?: (topicId: string) => void;
 }
 
+/**
+ * Renders Korean text with grammar elements cleanly highlighted in RED.
+ * Strips any markdown asterisks (e.g. **문법**) and displays the target grammar
+ * in clean red text (text-red-600 font-bold) without any cluttering special symbols.
+ */
+function renderRedGrammar(text: string, highlightTerm?: string) {
+  if (!text) return null;
+
+  // 1. If text has **markdown bold**, parse them and render bolded parts in red
+  if (text.includes('**')) {
+    const parts = text.split(/(\*\*.*?\*\*)/g);
+    return (
+      <>
+        {parts.map((part, idx) => {
+          if (part.startsWith('**') && part.endsWith('**')) {
+            const inner = part.slice(2, -2);
+            return (
+              <span key={idx} className="text-red-600 font-bold not-italic">
+                {inner}
+              </span>
+            );
+          }
+          return highlightTerm ? renderKeyword(part, highlightTerm, idx) : <span key={idx}>{part}</span>;
+        })}
+      </>
+    );
+  }
+
+  // 2. If no asterisks, highlight the target grammar element in red
+  if (highlightTerm && highlightTerm.trim()) {
+    return renderKeyword(text, highlightTerm, 0);
+  }
+
+  return <>{text}</>;
+}
+
+function renderKeyword(text: string, term: string, baseKey: number) {
+  if (!text) return null;
+  // Clean term of any punctuation or affixes for matching
+  const cleanTerm = term.replace(/[()[\]\-~*]/g, '').trim();
+  const searchTerms = [term, cleanTerm].filter(t => t && t.length >= 2);
+  if (searchTerms.length === 0) return <span key={baseKey}>{text}</span>;
+
+  const escaped = searchTerms
+    .sort((a, b) => b.length - a.length)
+    .map(s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+    .join('|');
+
+  try {
+    const regex = new RegExp(`(${escaped})`, 'gi');
+    const parts = text.split(regex);
+    return (
+      <React.Fragment key={baseKey}>
+        {parts.map((p, i) => {
+          const isMatch = searchTerms.some(st => st.toLowerCase() === p.toLowerCase());
+          if (isMatch) {
+            return (
+              <span key={i} className="text-red-600 font-bold not-italic">
+                {p}
+              </span>
+            );
+          }
+          return <span key={i}>{p}</span>;
+        })}
+      </React.Fragment>
+    );
+  } catch {
+    return <span key={baseKey}>{text}</span>;
+  }
+}
+
 export default function DynamicGrammarEngine({ onSelectTopic }: DynamicGrammarEngineProps) {
   const [query, setQuery] = useState<string>('영 별로인데');
   const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -121,7 +192,7 @@ export default function DynamicGrammarEngine({ onSelectTopic }: DynamicGrammarEn
           <div>
             <div className="flex items-center space-x-2">
               <h3 className="font-serif font-bold text-lg text-editorial-text">
-                DynamicGrammarEngine
+                고급 문법 분석
               </h3>
               <span className="px-2 py-0.5 bg-red-50 text-red-700 border border-red-200 rounded text-[10px] font-bold">
                 Gemini 실시간 심층 분석
@@ -132,18 +203,6 @@ export default function DynamicGrammarEngine({ onSelectTopic }: DynamicGrammarEn
             </p>
           </div>
         </div>
-
-        <a
-          href="https://kcenter.korean.go.kr/kcenter/search/dgrammar.do?mode=&id=&srchChosung=%E3%84%B1&searchCategory=&searchGrade=&searchTabMenu=&searchChineseYn=&curPage=1&srchKey=headword&srchKeyword="
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex items-center space-x-1.5 px-3 py-1.5 bg-neutral-100 hover:bg-red-50 text-editorial-text hover:text-red-700 border border-neutral-300 hover:border-red-300 rounded text-xs font-semibold transition-all cursor-pointer shrink-0 shadow-2xs group"
-          title="국립국어원 한국어교수학습샘터 문법 검색 바로가기"
-        >
-          <Search className="w-3.5 h-3.5 text-neutral-500 group-hover:text-red-600 transition-colors" />
-          <span>국립국어원 문법 검색</span>
-          <ExternalLink className="w-3 h-3 text-neutral-400 group-hover:text-red-500" />
-        </a>
       </div>
 
       {/* Search Input Box */}
@@ -249,7 +308,7 @@ export default function DynamicGrammarEngine({ onSelectTopic }: DynamicGrammarEn
                   문법 분석 결과
                 </span>
                 <h4 className="text-base font-serif font-bold text-editorial-text">
-                  {result.title}
+                  {renderRedGrammar(result.title, result.grammarTerm || query)}
                 </h4>
               </div>
               <span className="text-[10px] text-neutral-500 font-mono">
@@ -257,7 +316,7 @@ export default function DynamicGrammarEngine({ onSelectTopic }: DynamicGrammarEn
               </span>
             </div>
             <p className="text-xs text-editorial-text leading-relaxed font-serif">
-              {result.summary}
+              {renderRedGrammar(result.summary, result.grammarTerm || query)}
             </p>
           </div>
 
@@ -347,7 +406,7 @@ export default function DynamicGrammarEngine({ onSelectTopic }: DynamicGrammarEn
 
                   <div className="space-y-1">
                     <p className="text-sm font-serif font-bold text-editorial-text">
-                      {ex.korean}
+                      {renderRedGrammar(ex.korean, result.grammarTerm || query)}
                     </p>
                     <p className="text-[11px] text-neutral-400 italic">
                       {ex.romanized}
@@ -360,7 +419,7 @@ export default function DynamicGrammarEngine({ onSelectTopic }: DynamicGrammarEn
                   <div className="pt-2 border-t border-editorial-border/60 grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px]">
                     <div className="bg-white/80 p-2 rounded border border-editorial-border/60">
                       <span className="font-bold text-neutral-700 block">🔍 형태소 및 문법 분해:</span>
-                      <span className="text-editorial-muted">{ex.breakdown}</span>
+                      <span className="text-editorial-muted">{renderRedGrammar(ex.breakdown, result.grammarTerm || query)}</span>
                     </div>
                     <div className="bg-white/80 p-2 rounded border border-editorial-border/60">
                       <span className="font-bold text-emerald-800 block">💡 왜 이 문맥에 적절한가:</span>
@@ -439,7 +498,7 @@ export default function DynamicGrammarEngine({ onSelectTopic }: DynamicGrammarEn
                   </div>
                   <div className="bg-slate-50 p-2.5 rounded border border-slate-200">
                     <span className="font-bold text-slate-900 block">💬 초급 활용 예시:</span>
-                    <span className="text-slate-800 font-serif">{result.levelUsage.beginner.example}</span>
+                    <span className="text-slate-800 font-serif">{renderRedGrammar(result.levelUsage.beginner.example, result.grammarTerm || query)}</span>
                   </div>
                 </div>
               )}
@@ -463,7 +522,7 @@ export default function DynamicGrammarEngine({ onSelectTopic }: DynamicGrammarEn
                   </div>
                   <div className="bg-slate-50 p-2.5 rounded border border-slate-200">
                     <span className="font-bold text-slate-900 block">💬 중급 자연스러운 대화 예시:</span>
-                    <span className="text-slate-800 font-serif">{result.levelUsage.intermediate.example}</span>
+                    <span className="text-slate-800 font-serif">{renderRedGrammar(result.levelUsage.intermediate.example, result.grammarTerm || query)}</span>
                   </div>
                 </div>
               )}
@@ -487,7 +546,7 @@ export default function DynamicGrammarEngine({ onSelectTopic }: DynamicGrammarEn
                   </div>
                   <div className="bg-slate-50 p-2.5 rounded border border-slate-200">
                     <span className="font-bold text-slate-900 block">💬 고급 및 격식체 치환 예시:</span>
-                    <span className="text-slate-800 font-serif">{result.levelUsage.advanced.example}</span>
+                    <span className="text-slate-800 font-serif">{renderRedGrammar(result.levelUsage.advanced.example, result.grammarTerm || query)}</span>
                   </div>
                 </div>
               )}
@@ -503,7 +562,7 @@ export default function DynamicGrammarEngine({ onSelectTopic }: DynamicGrammarEn
                   <span>TOPIK 시험 대비 포인트:</span>
                 </div>
                 <p className="text-amber-900 text-[11px] leading-relaxed">
-                  {result.topikTip}
+                  {renderRedGrammar(result.topikTip, result.grammarTerm || query)}
                 </p>
               </div>
             )}
@@ -515,7 +574,7 @@ export default function DynamicGrammarEngine({ onSelectTopic }: DynamicGrammarEn
                   <span>원어민 직관 Pro-Tip:</span>
                 </div>
                 <p className="text-red-900 text-[11px] leading-relaxed">
-                  {result.proTip}
+                  {renderRedGrammar(result.proTip, result.grammarTerm || query)}
                 </p>
               </div>
             )}
@@ -531,9 +590,9 @@ export default function DynamicGrammarEngine({ onSelectTopic }: DynamicGrammarEn
                 {result.commonMistakes.map((m, mIdx) => (
                   <div key={mIdx} className="p-3 bg-white border border-editorial-border rounded-sm text-xs space-y-1.5">
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="text-rose-600 font-bold">❌ {m.wrong}</span>
+                      <span className="text-rose-600 font-bold">❌ {renderRedGrammar(m.wrong)}</span>
                       <ArrowRight className="w-3.5 h-3.5 text-neutral-400" />
-                      <span className="text-emerald-700 font-bold">⭕ {m.correct}</span>
+                      <span className="text-emerald-700 font-bold">⭕ {renderRedGrammar(m.correct)}</span>
                     </div>
                     <p className="text-[11px] text-editorial-muted leading-relaxed">
                       {m.why}
