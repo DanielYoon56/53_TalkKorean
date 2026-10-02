@@ -1659,6 +1659,11 @@ ${slangData.examples.map(ex => `* *"${ex.korean}"*\n  * (${ex.english})`).join("
         taxi: "You are an experienced, courteous Seoul taxi driver (택시 기사님). Speak natural, polite Korean (존댓말). You are currently driving the passenger to their destination.",
         convenience: "You are a helpful cashier at a GS25 convenience store in Seoul. Speak friendly, polite retail Korean.",
         bbq: "You are a cheerful, energetic waiter at a popular Korean BBQ restaurant in Gangnam.",
+        restaurant: "You are a cheerful, attentive waiter at a popular Korean restaurant in Seoul.",
+        subway: "You are a helpful Seoul Metro station staff member (역무원) guiding passengers at a busy station.",
+        pharmacy: "You are a professional, caring pharmacist (약사님) at a pharmacy in Seoul providing medication and consultation.",
+        market: "You are a warm, lively Korean traditional market vendor (광장시장 상인 이모님) selling delicious street food and produce.",
+        friend: "You are Min-soo (민수), a close Korean friend hanging out and chatting casually in natural friendly Korean (반말).",
         intro: "You are Min-ji (민지), a friendly Korean university student attending a language exchange meetup in Seoul.",
         noraebang: "You are a friendly, generous owner (사장님) of a popular Coin Noraebang (Karaoke) in Hongdae.",
         freetalk: "You are Ji-woo (지우), an encouraging and conversational Korean language tutor speaking with your student about daily life, hobbies, or Korea."
@@ -2422,6 +2427,113 @@ ${slangData.examples.map(ex => `* *"${ex.korean}"*\n  * (${ex.english})`).join("
             "한국어 자연스럽게 말하는 팁 알려주세요. (Give me tips to speak Korean naturally.)",
             "서울 맛집 추천해 주실 수 있나요? (Can you recommend good restaurants in Seoul?)",
             "오늘 만나서 정말 반가웠어요! (Nice to meet you today!)"
+          ];
+        }
+      } else if (scenarioId === "subway") {
+        if (/호선|환승|어디|갈아타|노선/i.test(msg)) {
+          aiKorean = "네, 잠실역으로 가시려면 여기서 2호선(초록색 라인)을 타시면 됩니다! 승강장은 오른쪽 계단으로 내려가세요.";
+          aiRomanized = "Ne, Jamsil-yeog-euro gasiryeomyeon yeogiseo i-hoseon(choroksaek rain)-eul tasimyeon doemnida! Seunggangjang-eun oreunjjok gyedan-euro naeryeogaseyo.";
+          aiEnglish = "Yes, to go to Jamsil Station, take Line 2 (green line) from here! Head down the stairs on the right.";
+          suggestedReplies = [
+            "감사합니다! 몇 정거장 가야 하나요? (Thank you! How many stops is it?)",
+            "교통카드 충전기는 어디 있나요? (Where is the transit card recharge machine?)",
+            "1번 출구는 어느 쪽인가요? (Which way is Exit 1?)"
+          ];
+        } else if (/오류|안 찍|교통카드|카드|개찰구|티머니/i.test(msg)) {
+          aiKorean = "아, 개찰구 태그 오류이시군요! 개찰구 옆 벨을 누르시거나 카드를 이쪽 단말기에 대주시면 처리해 드리겠습니다.";
+          aiRomanized = "A, gaechalgu taegeu oryuisigunyo! Gaechalgu yeop bel-eul nureusigeona kadeu-reul ijjok danmalgi-e daejusimyeon cheori-hae deurigesseumnida.";
+          aiEnglish = "Ah, turnstile tap error! Press the bell next to the gate or touch your card on this terminal and I will resolve it.";
+          suggestedReplies = [
+            "네, 여기 카드 있습니다. (Yes, here is the card.)",
+            "처리해 주셔서 감사합니다. (Thank you for resolving it.)",
+            "얼마나 충전되어 있나요? (How much balance is on the card?)"
+          ];
+        } else {
+          aiKorean = "네, 서울 지하철 역무실입니다. 출구 위치나 환승 노선 안내가 필요하시면 언제든 말씀해 주세요!";
+          aiRomanized = "Ne, Seoul jihacheol yeongmusil-imnida. Chulgu wichi-na hwanseung noseon annae-ga piryohasimyeon eonjedeun malsseum-hae juseyo!";
+          aiEnglish = "Yes, Seoul Metro station office. Please let me know if you need exit directions or transfer guidance!";
+          suggestedReplies = [
+            "잠실역 가려면 몇 호선 타요? (Which line do I take for Jamsil?)",
+            "교통카드 잔액 확인해 주세요. (Please check my transit card balance.)",
+            "출구 번호 안내 부탁드려요. (Please guide me to the exit number.)"
+          ];
+        }
+      } else if (scenarioId === "pharmacy") {
+        if (/머리|두통|열|감기|몸살|기침/i.test(msg)) {
+          aiKorean = "두통과 미열이 있으시군요. 식사 후 드시는 순한 진통소염제와 감기약으로 준비해 드릴게요. 물을 많이 드세요!";
+          aiRomanized = "Dutong-gwa miyeol-i isseusigunyo. Siksa hu deusineun sunhan jintong-soyeomje-wa gamgiyak-euro junbi-hae deurilgeyo. Mul-eul manhi deuseyo!";
+          aiEnglish = "You have a headache and slight fever. I will prepare gentle pain relievers and cold medicine to take after meals. Drink plenty of water!";
+          suggestedReplies = [
+            "하루에 몇 번 먹어야 하나요? (How many times a day should I take this?)",
+            "졸린 성분이 들어있나요? (Does it contain drowsy ingredients?)",
+            "얼마인가요? 카드로 계산할게요. (How much is it? I will pay by card.)"
+          ];
+        } else if (/배|소화|체|위장|설사|속/i.test(msg)) {
+          aiKorean = "소화가 잘 안 되시고 체하셨군요. 위에 부담 없는 액상 소화제와 알약을 챙겨드렸습니다. 따뜻한 물과 함께 복용하세요.";
+          aiRomanized = "Sohwa-ga jal an doesigo chehasyeotgunyo. Wi-e budam eopneun aeksang sohwaje-wa alyak-eul chaenggyeo-deureosseumnida. Ttatteut-han mul-gwa hamkke bogyong-haseyo.";
+          aiEnglish = "You have indigestion! I prepared liquid digestive medicine and tablets that are gentle on the stomach. Take them with warm water.";
+          suggestedReplies = [
+            "감사합니다. 식전에 먹나요, 식후에 먹나요? (Thank you. Do I take it before or after meals?)",
+            "가격이 얼마예요? (How much is the price?)",
+            "영수증도 챙겨주세요. (Please give me the receipt too.)"
+          ];
+        } else {
+          aiKorean = "어서 오세요! 약국입니다. 어디가 아프시거나 필요한 상비약이 있으신가요?";
+          aiRomanized = "Eoseo oseyo! Yakguk-imnida. Eodiga apeusigeona piryohan sangbiyak-i isseusingayo?";
+          aiEnglish = "Welcome! This is the pharmacy. Are you feeling unwell somewhere or do you need medicine?";
+          suggestedReplies = [
+            "두통약과 소화제 좀 주세요. (Please give me headache medicine and digestive medicine.)",
+            "파스랑 밴드도 있나요? (Do you also have pain patches and band-aids?)",
+            "식후 30분에 먹으면 되나요? (Should I take it 30 minutes after meals?)"
+          ];
+        }
+      } else if (scenarioId === "restaurant") {
+        if (/주문|삼겹살|고기|메뉴|인분|추천/i.test(msg)) {
+          aiKorean = "네! 저희 매장은 국내산 생삼겹살과 목살이 최고 인기입니다. 삼겹살 2인분 먼저 올려드릴까요?";
+          aiRomanized = "Ne! Jeohui maejang-eun guknesan sengsamgyeopsal-gwa moksal-i choego ingi-imnida. Samgyeopsal i-inbun meonjeo ollyeo-deurilkkayo?";
+          aiEnglish = "Yes! Our domestic fresh pork belly and pork neck are the most popular. Shall I put 2 servings of pork belly on the grill first?";
+          suggestedReplies = [
+            "네! 삼겹살 2인분 부탁드려요. (Yes! 2 servings of pork belly please.)",
+            "된장찌개랑 공깃밥도 추가해 주세요. (Please add soybean stew and steamed rice too.)",
+            "불판 데워지면 구워 주시나요? (Do you grill it for us when the pan heats up?)"
+          ];
+        } else if (/상추|마늘|쌈장|반찬|물|불판|더/i.test(msg)) {
+          aiKorean = "네! 신선한 쌈채소와 마늘, 쌈장 바로 넉넉하게 리필해 드렸습니다. 맛있게 구워 드세요!";
+          aiRomanized = "Ne! Sinseonhan ssamchaeso-wa maneul, ssamjang baro neokneokhage ripil-hae deureosseumnida. Masitge gwo deuseyo!";
+          aiEnglish = "Yes! I immediately refilled fresh wrap vegetables, garlic, and ssamjang generously. Enjoy grilling!";
+          suggestedReplies = [
+            "감사합니다! 고기가 정말 부드럽고 맛있네요. (Thank you! The meat is really tender and delicious.)",
+            "불판 한 번만 갈아주실 수 있나요? (Could you change the grill pan once?)",
+            "계산서 부탁드립니다. (Check please.)"
+          ];
+        } else {
+          aiKorean = "어서 오세요! 훈훈한 숯불구이 전문점입니다. 편하신 자리에 앉으시면 물과 메뉴판 가져다드리겠습니다!";
+          aiRomanized = "Eoseo oseyo! Hunhunhan sutbul-gui jeonmunjeom-imnida. Pyeonhasin jari-e anjeusimyeon mul-gwa menyupan gajyeodadeurigesseumnida!";
+          aiEnglish = "Welcome! This is our charcoal BBQ specialty restaurant. Please sit anywhere and I'll bring water and the menu!";
+          suggestedReplies = [
+            "삼겹살 2인분 먼저 주세요! (2 servings of pork belly first please!)",
+            "여기 제일 맛있는 메뉴 추천해 주세요. (Please recommend the tastiest menu here.)",
+            "앞치마 좀 주실 수 있나요? (Could you give me an apron?)"
+          ];
+        }
+      } else if (scenarioId === "market") {
+        if (/얼마|가격|포장|떡볶이|순대|튀김/i.test(msg)) {
+          aiKorean = "떡볶이 1인분에 4천 원이에요! 떡볶이 국물에 순대랑 바삭한 튀김 찍어 먹으면 꿀맛이야. 덤으로 어묵 국물도 듬뿍 줬어!";
+          aiRomanized = "Tteokbokki il-inbun-e sa-cheon won-ieyo! Tteokbokki gungmul-e sundae-rang basak-han twigim jjig-eo meogeumyeon kkulmat-iya. Deom-euro eomuk gungmul-do deumpuk jweosseo!";
+          aiEnglish = "Tteokbokki is 4,000 won per serving! Dipping sundae and crispy fries in tteokbokki sauce is heavenly. I gave you lots of fish cake broth as a bonus!";
+          suggestedReplies = [
+            "우와, 이모님 인심 최고예요! (Wow, auntie's generosity is the best!)",
+            "여기서 먹고 갈게요. (I will eat here.)",
+            "1인분 포장해 주세요. (Please pack 1 serving.)"
+          ];
+        } else {
+          aiKorean = "어서와 학생! 광장시장 제일 맛있는 분식집이야. 따끈한 어묵이랑 매콤한 떡볶이 맛보고 가!";
+          aiRomanized = "Eoseowa haksaeng! Gwangjang sijang jeil masitneun bunsikjip-iya. Ttakkeunhan eomuk-irang maekomhan tteokbokki matbogo ga!";
+          aiEnglish = "Welcome student! This is the most delicious street snack shop in Gwangjang Market. Come taste warm fish cake and spicy tteokbokki!";
+          suggestedReplies = [
+            "이모님, 떡볶이 1인분 포장해 주세요! (Auntie, please pack 1 serving of tteokbokki!)",
+            "순대랑 튀김도 섞어 주실 수 있나요? (Can you mix sundae and fries too?)",
+            "이거 많이 맵나요? (Is this very spicy?)"
           ];
         }
       } else {
