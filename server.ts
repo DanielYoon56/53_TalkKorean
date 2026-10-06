@@ -2,6 +2,7 @@ import express from "express";
 import path from "path";
 import { createServer as createViteServer } from "vite";
 import { GoogleGenAI } from "@google/genai";
+import { GoogleAuth } from "google-auth-library";
 import dotenv from "dotenv";
 import { findCuratedSlang, CURATED_SLANG_DICTIONARY } from "./src/data/curatedSlangs";
 import { getCuratedOrDynamicGrammarAnalysis, ensureEnrichedGrammarAnalysis } from "./src/data/curatedGrammarNuances";
@@ -9,37 +10,85 @@ import { CURATED_TOPIC_TEMPLATES, findCuratedTopic, synthesizeDynamicContent, en
 
 dotenv.config();
 
-// Lazy-initialized Gemini client helper
+// Lazy-initialized Gemini client helper with GoogleAuth support
 let aiInstance: GoogleGenAI | null = null;
 let lastApiKey: string = "";
+let googleAuthInstance: GoogleAuth | null = null;
+let cachedAuthToken: string = "";
+let cachedAuthTokenExpiresAt: number = 0;
 
-function getGeminiClient(): GoogleGenAI | null {
+async function getGeminiClient(): Promise<GoogleGenAI | null> {
   const rawKey = process.env.GEMINI_API_KEY;
-  if (!rawKey || rawKey === "MY_GEMINI_API_KEY" || rawKey.trim().length === 0) {
-    return null;
+  const apiKey = rawKey ? rawKey.trim().replace(/^["']|["']$/g, "").replace(/^Bearer\s+/i, "") : "";
+
+  // 1. If standard Gemini API key (AIzaSy...) is provided
+  if (apiKey && apiKey.startsWith("AIzaSy") && apiKey.length >= 20) {
+    if (!aiInstance || lastApiKey !== apiKey) {
+      try {
+        aiInstance = new GoogleGenAI({
+          apiKey,
+          httpOptions: {
+            headers: {
+              "User-Agent": "aistudio-build",
+            },
+          },
+        });
+        lastApiKey = apiKey;
+      } catch {
+        aiInstance = null;
+        return null;
+      }
+    }
+    return aiInstance;
   }
-  const apiKey = rawKey.trim().replace(/^["']|["']$/g, "").replace(/^Bearer\s+/i, "");
-  // Standard Gemini API keys start with AIzaSy... If it starts with AQ. (OAuth token) or is malformed, skip to prevent 401 unauthenticated errors
-  if (!apiKey || apiKey.startsWith("AQ.") || apiKey.length < 20) {
-    return null;
-  }
-  if (!aiInstance || lastApiKey !== apiKey) {
-    try {
-      aiInstance = new GoogleGenAI({
-        apiKey,
+
+  // 2. Compute / Service Account / AI Studio Auth Token via GoogleAuth
+  try {
+    const now = Date.now();
+    if (!cachedAuthToken || now >= cachedAuthTokenExpiresAt - 60000) {
+      if (!googleAuthInstance) {
+        googleAuthInstance = new GoogleAuth({
+          scopes: [
+            "https://www.googleapis.com/auth/cloud-platform",
+            "https://www.googleapis.com/auth/generative-language",
+          ],
+        });
+      }
+      const client = await googleAuthInstance.getClient();
+      const tokenResponse = await client.getAccessToken();
+      if (tokenResponse?.token) {
+        cachedAuthToken = tokenResponse.token;
+        // Access tokens typically last 1 hour
+        cachedAuthTokenExpiresAt = now + 50 * 60 * 1000;
+      }
+    }
+
+    if (cachedAuthToken) {
+      const prevKey = process.env.GEMINI_API_KEY;
+      if (prevKey && prevKey.startsWith("AQ.")) {
+        delete process.env.GEMINI_API_KEY;
+      }
+
+      const client = new GoogleGenAI({
         httpOptions: {
           headers: {
             "User-Agent": "aistudio-build",
+            Authorization: `Bearer ${cachedAuthToken}`,
           },
         },
       });
-      lastApiKey = apiKey;
-    } catch {
-      aiInstance = null;
-      return null;
+
+      if (prevKey) {
+        process.env.GEMINI_API_KEY = prevKey;
+      }
+
+      return client;
     }
+  } catch (err: any) {
+    console.warn("[Gemini GoogleAuth Client Notice]:", err?.message || err);
   }
-  return aiInstance;
+
+  return null;
 }
 
 async function startServer() {
@@ -192,38 +241,48 @@ async function startServer() {
     const isLocal = host.includes("localhost") || host.includes("127.0.0.1");
     const baseUrl = !isLocal && host && !host.includes("run.app") ? `https://${host}` : "https://talkkorean.ai.studio";
 
+    const today = new Date().toISOString().split("T")[0];
+    const seoRoutes = [
+      { path: "/korean-conversation", priority: "0.9" },
+      { path: "/korean-speaking-practice", priority: "0.9" },
+      { path: "/korean-pronunciation", priority: "0.9" },
+      { path: "/korean-listening-practice", priority: "0.8" },
+      { path: "/korean-grammar-practice", priority: "0.8" },
+      { path: "/korean-vocabulary", priority: "0.8" },
+      { path: "/korean-for-beginners", priority: "0.9" },
+      { path: "/learn-korean-speaking", priority: "0.9" },
+      { path: "/ai-korean-tutor", priority: "0.9" },
+      { path: "/ai-korean-conversation", priority: "0.9" },
+      { path: "/korean-roleplay", priority: "0.8" },
+      { path: "/korean-translation-practice", priority: "0.8" },
+      { path: "/korean-expression-practice", priority: "0.8" },
+      { path: "/korean-conversation-topics", priority: "0.8" },
+      { path: "/daily-korean-conversation", priority: "0.8" },
+      { path: "/travel-korean", priority: "0.8" },
+      { path: "/restaurant-korean", priority: "0.8" },
+      { path: "/shopping-korean", priority: "0.8" },
+      { path: "/business-korean", priority: "0.8" },
+      { path: "/korean-small-talk", priority: "0.8" },
+    ];
+
     const sitemap = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
     <loc>${baseUrl}/</loc>
-    <lastmod>${new Date().toISOString().split("T")[0]}</lastmod>
+    <lastmod>${today}</lastmod>
     <changefreq>daily</changefreq>
     <priority>1.0</priority>
   </url>
-  <url>
-    <loc>${baseUrl}/korean-speaking-practice</loc>
-    <lastmod>${new Date().toISOString().split("T")[0]}</lastmod>
+${seoRoutes
+  .map(
+    (r) => `  <url>
+    <loc>${baseUrl}${r.path}</loc>
+    <lastmod>${today}</lastmod>
     <changefreq>weekly</changefreq>
-    <priority>0.9</priority>
-  </url>
-  <url>
-    <loc>${baseUrl}/korean-conversation-practice</loc>
-    <lastmod>${new Date().toISOString().split("T")[0]}</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.9</priority>
-  </url>
-  <url>
-    <loc>${baseUrl}/ai-korean-tutor</loc>
-    <lastmod>${new Date().toISOString().split("T")[0]}</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.9</priority>
-  </url>
-  <url>
-    <loc>${baseUrl}/korean-for-beginners</loc>
-    <lastmod>${new Date().toISOString().split("T")[0]}</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.8</priority>
-  </url>
+    <priority>${r.priority}</priority>
+  </url>`
+  )
+  .join("\n")}
 </urlset>`;
 
     res.setHeader("Content-Type", "application/xml; charset=utf-8");
@@ -259,7 +318,7 @@ Sitemap: https://talkkorean.ai.studio/sitemap.xml
         return res.status(400).json({ error: "Text is required" });
       }
 
-      const ai = getGeminiClient();
+      const ai = await getGeminiClient();
       if (!ai) throw new Error("Gemini API key not configured");
       const prompt = `You are an expert Korean language teacher. Analyze this Korean text: "${text}". 
       ${context ? `The context is from a K-POP song or lesson: "${context}".` : ""}
@@ -335,7 +394,7 @@ Sitemap: https://talkkorean.ai.studio/sitemap.xml
       }
 
       const query = rawQuery;
-      const ai = getGeminiClient();
+      const ai = await getGeminiClient();
 
       if (ai) {
         try {
@@ -481,7 +540,7 @@ Return STRICTLY a JSON object with this complete schema:
       let analysisResult: any = null;
       let source = "academic_linguistic_engine";
 
-      const ai = getGeminiClient();
+      const ai = await getGeminiClient();
       if (ai) {
         try {
           const prompt = `You are an elite Korean linguistics professor and master pedagogue specializing in KSL (Korean as a Second Language) education, discourse analysis, and Korean literature.
@@ -673,8 +732,8 @@ Return STRICTLY a JSON object with this complete schema:
         });
       }
 
-      // 2. If not in curated dictionary, query Gemini 3.7 Flash for deep linguistic analysis
-      const ai = getGeminiClient();
+      // 2. If not in curated dictionary, query Gemini for deep linguistic analysis
+      const ai = await getGeminiClient();
       if (ai) {
         const prompt = `You are a linguist specializing in modern Korean slang, MZ generational buzzwords, and internet neologisms.
 Explain the Korean slang or buzzword: "${term}".
@@ -798,7 +857,7 @@ Required JSON Structure:
         return res.status(400).json({ error: "Original lyric is required" });
       }
 
-      const ai = getGeminiClient();
+      const ai = await getGeminiClient();
       if (!ai) throw new Error("Gemini API key not configured");
       const prompt = `Analyze a student's Korean pronunciation. 
       Original text: "${lyric}". 
@@ -860,7 +919,7 @@ Required JSON Structure:
       // Check if we have a curated template for this topic for instantaneous response
       const matchedKey = findCuratedTopic(cleanTopic);
 
-      const ai = getGeminiClient();
+      const ai = await getGeminiClient();
 
       if (ai) {
         try {
@@ -1140,7 +1199,7 @@ You MUST output valid JSON matching this exact structure:
       }
 
       const userText = message.trim();
-      const ai = getGeminiClient();
+      const ai = await getGeminiClient();
       if (!ai) throw new Error("Gemini API key not configured");
       
       // Define persona instructions
@@ -1651,7 +1710,7 @@ ${slangData.examples.map(ex => `* *"${ex.korean}"*\n  * (${ex.english})`).join("
         return res.status(400).json({ error: "userMessage is required" });
       }
 
-      const ai = getGeminiClient();
+      const ai = await getGeminiClient();
       if (!ai) throw new Error("Gemini API key not configured");
 
       const scenarioPrompts: Record<string, string> = {
@@ -1752,15 +1811,20 @@ ${slangData.examples.map(ex => `* *"${ex.korean}"*\n  * (${ex.english})`).join("
       }`;
 
       const response = await ai.models.generateContent({
-        model: "gemini-flash-latest",
+        model: "gemini-3.8-flash",
         contents: prompt,
         config: {
           responseMimeType: "application/json",
         },
       });
 
-      const responseText = response.text || "{}";
-      res.json(JSON.parse(responseText));
+      let responseText = (response.text || "{}").trim();
+      if (responseText.startsWith("```json")) {
+        responseText = responseText.replace(/^```json\s*/i, "").replace(/\s*```$/, "");
+      } else if (responseText.startsWith("```")) {
+        responseText = responseText.replace(/^```\s*/, "").replace(/\s*```$/, "");
+      }
+      return res.json(JSON.parse(responseText));
     } catch (err: any) {
       if (process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY !== "MY_GEMINI_API_KEY") {
         console.warn("[Gemini API Live Conversation Notice]:", err?.message || err);
@@ -2674,8 +2738,8 @@ Output JSON ONLY with the following schema:
   "improvedEssay": "완벽하게 교정된 TOPIK II 최고득점 모범 답안 문장"
 }`;
 
-      const model = "gemini-flash-latest";
-      const ai = getGeminiClient();
+      const model = "gemini-3.8-flash";
+      const ai = await getGeminiClient();
       if (!ai) throw new Error("Gemini API key not configured");
       const response = await ai.models.generateContent({
         model,

@@ -13,12 +13,26 @@ import AiContentGenerator from './components/AiContentGenerator';
 import CreditCheckoutModal from './components/CreditCheckoutModal';
 import AdminModal from './components/AdminModal';
 import Footer from './components/Footer';
+import SeoLandingPage from './components/seo/SeoLandingPage';
+import { SEO_PAGES } from './config/seoPages';
 import { UserStats, PronunciationScore, CreditTransaction, TutorBooking } from './types';
 import { INITIAL_USER_STATS } from './data';
 import { initSpeechVoices } from './utils/tts';
 import { trackMenuVisit, trackKeyAction } from './utils/analyticsTracker';
 
 const VALID_TABS = ['Home', 'KCulture', 'AiCreator', 'LyricsLab', 'Dashboard', 'Topik', 'LevelTest', 'Support', 'MyPage'];
+
+const getInitialSeoPath = (): string | null => {
+  try {
+    const rawPath = window.location.pathname.replace(/\/$/, '') || '/';
+    if (rawPath !== '/' && SEO_PAGES[rawPath]) {
+      return rawPath;
+    }
+  } catch (e) {
+    // fallback
+  }
+  return null;
+};
 
 const getInitialTab = (): string => {
   try {
@@ -37,6 +51,7 @@ const getInitialTab = (): string => {
 };
 
 export default function App() {
+  const [seoPath, setSeoPath] = useState<string | null>(getInitialSeoPath);
   const [activeTab, setActiveTab] = useState<string>(getInitialTab);
   const [dashboardSubMenu, setDashboardSubMenu] = useState<StudyMenu | undefined>(undefined);
   const [kCultureCategory, setKCultureCategory] = useState<KCultureCategory | undefined>(undefined);
@@ -48,28 +63,49 @@ export default function App() {
   const [adminInitialTab, setAdminInitialTab] = useState<'costs' | 'analytics' | 'simulator' | 'system' | 'users' | 'creator'>('costs');
   const [currentLang, setCurrentLang] = useState<string>('EN');
 
-  // Synchronize activeTab to localStorage and URL hash to prevent accidental resets
+  // Synchronize activeTab to localStorage and URL hash (when not on an SEO landing page)
   useEffect(() => {
     try {
       localStorage.setItem('talkkorean_active_tab', activeTab);
-      if (window.location.hash.replace('#', '') !== activeTab) {
+      if (!seoPath && window.location.hash.replace('#', '') !== activeTab) {
         window.history.replaceState(null, '', `#${activeTab}`);
       }
     } catch (e) {
       // ignore storage errors
     }
-  }, [activeTab]);
+  }, [activeTab, seoPath]);
 
+  // Handle browser back / forward navigation (popstate & hashchange)
   useEffect(() => {
-    const handleHashChange = () => {
-      const hash = window.location.hash.replace('#', '');
-      if (hash && VALID_TABS.includes(hash) && hash !== activeTab) {
-        setActiveTab(hash);
+    const handlePopState = () => {
+      const rawPath = window.location.pathname.replace(/\/$/, '') || '/';
+      if (rawPath !== '/' && SEO_PAGES[rawPath]) {
+        setSeoPath(rawPath);
+      } else {
+        setSeoPath(null);
+        const hash = window.location.hash.replace('#', '');
+        if (hash && VALID_TABS.includes(hash)) {
+          setActiveTab(hash);
+        }
       }
     };
+
+    const handleHashChange = () => {
+      if (!seoPath) {
+        const hash = window.location.hash.replace('#', '');
+        if (hash && VALID_TABS.includes(hash) && hash !== activeTab) {
+          setActiveTab(hash);
+        }
+      }
+    };
+
+    window.addEventListener('popstate', handlePopState);
     window.addEventListener('hashchange', handleHashChange);
-    return () => window.removeEventListener('hashchange', handleHashChange);
-  }, [activeTab]);
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+      window.removeEventListener('hashchange', handleHashChange);
+    };
+  }, [activeTab, seoPath]);
 
   const handleOpenAdmin = (tab?: 'costs' | 'analytics' | 'simulator' | 'system' | 'users' | 'creator') => {
     setAdminInitialTab(tab || 'costs');
@@ -189,7 +225,23 @@ export default function App() {
     return true;
   };
 
+  const handleNavigateSeoPath = (path: string) => {
+    if (path === '/' || path === '') {
+      setSeoPath(null);
+      window.history.pushState(null, '', '/#Home');
+      setActiveTab('Home');
+    } else if (SEO_PAGES[path]) {
+      setSeoPath(path);
+      window.history.pushState(null, '', path);
+    }
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
   const handleNavigate = (tab: string, subMenu?: StudyMenu) => {
+    if (seoPath) {
+      setSeoPath(null);
+      window.history.pushState(null, '', `/#${tab}`);
+    }
     if (subMenu) {
       setDashboardSubMenu(subMenu);
     } else if (tab === 'Dashboard' && activeTab !== 'Dashboard') {
@@ -197,6 +249,7 @@ export default function App() {
     }
     trackMenuVisit(tab);
     setActiveTab(tab);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleTryAgain = () => {
@@ -223,88 +276,99 @@ export default function App() {
           setKCultureCategory(category as KCultureCategory);
           handleNavigate('KCulture');
         }}
+        onNavigateToConversation={() => handleNavigate('Dashboard', 'ai-conversation')}
       />
 
       {/* Main View Area with clean conditional transitions */}
       <main className="flex-1">
-        {activeTab === 'Home' && (
-          <Home setActiveTab={handleNavigate} />
-        )}
-        {activeTab === 'KCulture' && (
-          <KCulture 
-            initialCategory={kCultureCategory}
-            onNavigateToChat={() => handleNavigate('Dashboard')}
-            credits={stats.credits}
-            onOpenCreditModal={() => setIsCreditModalOpen(true)}
-            onSpendCredits={handleSpendCredits}
-            onBookTutor={handleBookTutor}
-            onNavigateToMyPage={() => handleNavigate('MyPage')}
-            onNavigateToAiCreator={(topic) => {
-              setAiCreatorTopic(topic);
-              handleOpenAdmin('creator');
-            }}
+        {seoPath && SEO_PAGES[seoPath] ? (
+          <SeoLandingPage
+            config={SEO_PAGES[seoPath]}
+            onNavigateToPractice={() => handleNavigate('Dashboard', 'ai-conversation')}
+            onNavigatePath={handleNavigateSeoPath}
           />
-        )}
-        {activeTab === 'AiCreator' && (
-          <AiContentGenerator
-            initialTopic={aiCreatorTopic}
-            credits={stats.credits}
-            onSpendCredits={handleSpendCredits}
-            onOpenCreditModal={() => setIsCreditModalOpen(true)}
-            onNavigate={handleNavigate}
-          />
-        )}
-        {activeTab === 'LyricsLab' && (
-          <LyricsLab 
-            setActiveTab={handleNavigate} 
-            setPronunciationResult={(res) => {
-              if (res) trackKeyAction('LyricsLab', '발음 녹음 채점');
-              setPronunciationResult(res);
-            }}
-            credits={stats.credits}
-            onOpenCreditModal={() => setIsCreditModalOpen(true)}
-            onSpendCredits={handleSpendCredits}
-          />
-        )}
-        {activeTab === 'Dashboard' && (
-          <Dashboard 
-            stats={stats} 
-            setStats={setStats} 
-            setActiveTab={handleNavigate}
-            initialMenu={dashboardSubMenu}
-            onOpenCreditModal={() => setIsCreditModalOpen(true)}
-            onSpendCredits={handleSpendCredits}
-            onRewardCredits={handleAddCredits}
-          />
-        )}
-        {activeTab === 'Topik' && (
-          <Topik 
-            credits={stats.credits}
-            onOpenCreditModal={() => setIsCreditModalOpen(true)}
-            onSpendCredits={handleSpendCredits}
-          />
-        )}
-        {activeTab === 'LevelTest' && (
-          <LevelTest />
-        )}
-        {activeTab === 'PronunciationDetail' && (
-          <PronunciationDetail 
-            result={pronunciationResult} 
-            setActiveTab={setActiveTab} 
-            onTryAgain={handleTryAgain} 
-          />
-        )}
-        {activeTab === 'Support' && (
-          <CustomerSupport />
-        )}
-        {activeTab === 'MyPage' && (
-          <MyPage 
-            stats={stats}
-            onUpdateStats={setStats}
-            onOpenCreditModal={() => setIsCreditModalOpen(true)}
-            onNavigate={handleNavigate}
-            onBookTutor={handleBookTutor}
-          />
+        ) : (
+          <>
+            {activeTab === 'Home' && (
+              <Home setActiveTab={handleNavigate} />
+            )}
+            {activeTab === 'KCulture' && (
+              <KCulture 
+                initialCategory={kCultureCategory}
+                onNavigateToChat={() => handleNavigate('Dashboard')}
+                credits={stats.credits}
+                onOpenCreditModal={() => setIsCreditModalOpen(true)}
+                onSpendCredits={handleSpendCredits}
+                onBookTutor={handleBookTutor}
+                onNavigateToMyPage={() => handleNavigate('MyPage')}
+                onNavigateToAiCreator={(topic) => {
+                  setAiCreatorTopic(topic);
+                  handleOpenAdmin('creator');
+                }}
+              />
+            )}
+            {activeTab === 'AiCreator' && (
+              <AiContentGenerator
+                initialTopic={aiCreatorTopic}
+                credits={stats.credits}
+                onSpendCredits={handleSpendCredits}
+                onOpenCreditModal={() => setIsCreditModalOpen(true)}
+                onNavigate={handleNavigate}
+              />
+            )}
+            {activeTab === 'LyricsLab' && (
+              <LyricsLab 
+                setActiveTab={handleNavigate} 
+                setPronunciationResult={(res) => {
+                  if (res) trackKeyAction('LyricsLab', '발음 녹음 채점');
+                  setPronunciationResult(res);
+                }}
+                credits={stats.credits}
+                onOpenCreditModal={() => setIsCreditModalOpen(true)}
+                onSpendCredits={handleSpendCredits}
+              />
+            )}
+            {activeTab === 'Dashboard' && (
+              <Dashboard 
+                stats={stats} 
+                setStats={setStats} 
+                setActiveTab={handleNavigate}
+                initialMenu={dashboardSubMenu}
+                onOpenCreditModal={() => setIsCreditModalOpen(true)}
+                onSpendCredits={handleSpendCredits}
+                onRewardCredits={handleAddCredits}
+              />
+            )}
+            {activeTab === 'Topik' && (
+              <Topik 
+                credits={stats.credits}
+                onOpenCreditModal={() => setIsCreditModalOpen(true)}
+                onSpendCredits={handleSpendCredits}
+              />
+            )}
+            {activeTab === 'LevelTest' && (
+              <LevelTest />
+            )}
+            {activeTab === 'PronunciationDetail' && (
+              <PronunciationDetail 
+                result={pronunciationResult} 
+                setActiveTab={setActiveTab} 
+                onTryAgain={handleTryAgain} 
+              />
+            )}
+            {activeTab === 'Support' && (
+              <CustomerSupport />
+            )}
+            {activeTab === 'MyPage' && (
+              <MyPage 
+                stats={stats}
+                onUpdateStats={setStats}
+                onOpenCreditModal={() => setIsCreditModalOpen(true)}
+                onNavigate={handleNavigate}
+                onBookTutor={handleBookTutor}
+              />
+            )}
+          </>
         )}
       </main>
 
@@ -312,6 +376,7 @@ export default function App() {
       <Footer 
         onOpenAdmin={handleOpenAdmin} 
         setActiveTab={handleNavigate} 
+        onNavigateSeoPath={handleNavigateSeoPath}
       />
 
       {/* Credit Checkout & Store Modal */}

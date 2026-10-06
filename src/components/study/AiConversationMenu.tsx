@@ -157,6 +157,18 @@ const SCENARIO_OPENINGS: Record<string, ScenarioOpening> = {
       "마이크 커버 두 개 주시겠어요? (Could you give us two mic covers?)"
     ]
   },
+  intro: {
+    aiKorean: "안녕! 만나서 반가워. 나는 민지야! 한국어 공부한 지 얼마나 됐어?",
+    aiRomanized: "Annyeong! Mannaseo bangawo. Naneun Minji-ya! Hangugeo gongbu-han ji eolmana dwaesseo?",
+    aiEnglish: "Hi! Nice to meet you. I'm Min-ji! How long have you been studying Korean?",
+    roleKo: "언어교환 친구 민지",
+    roleEn: "Language Exchange Friend Min-ji",
+    suggestedReplies: [
+      "안녕 민지야! 한국어 배운 지 6개월 정도 됐어. (Hi Min-ji! It's been about 6 months since I started.)",
+      "K-POP 좋아해서 독학으로 공부하고 있어. (I study by myself because I love K-POP.)",
+      "한국인 친구 사귀고 싶어서 모임에 나왔어! (I came to this meetup because I want to make Korean friends!)"
+    ]
+  },
   friend: {
     aiKorean: "안녕! 만나서 반가워. 나는 민지야! 한국어 공부한 지 얼마나 됐어?",
     aiRomanized: "Annyeong! Mannaseo bangawo. Naneun Minji-ya! Hangugeo gongbu-han ji eolmana dwaesseo?",
@@ -183,11 +195,95 @@ const SCENARIO_OPENINGS: Record<string, ScenarioOpening> = {
   }
 };
 
+const ADDITIONAL_SCENARIOS = [
+  {
+    id: 'subway',
+    titleKo: '🚇 지하철 역무실 문의 & 환승',
+    titleEn: 'Seoul Metro Transit & Directions',
+    badge: 'Transit',
+    category: 'travel' as const,
+    difficulty: 'Intermediate' as any,
+    roleKo: '지하철 역무원',
+    roleEn: 'Seoul Metro Staff',
+    settingKo: '출구 위치, 환승 노선, 교통카드 오류 등을 역무원에게 문의해 보세요.',
+    settingEn: 'Ask for directions, exit numbers, and card tap issues at a busy Seoul station.',
+    image: '',
+    keyVocab: [
+      { ko: '갈아타다 (환승)', en: 'transfer lines', pronunciation: 'garatada (hwanseung)' },
+      { ko: '개찰구 오류', en: 'turnstile error', pronunciation: 'gaechalgu oryu' },
+      { ko: '몇 번 출구예요?', en: 'Which exit is it?', pronunciation: 'myeot beon chulgueyo?' }
+    ],
+    rootNodeId: 'subway_root',
+    nodes: {}
+  },
+  {
+    id: 'restaurant',
+    titleKo: '🍲 한국 전통 식당 주문 & 반찬 요청',
+    titleEn: 'Korean Restaurant Dining & Ordering',
+    badge: 'Dining',
+    category: 'food' as const,
+    difficulty: 'Beginner+' as any,
+    roleKo: '식당 직원',
+    roleEn: 'Restaurant Staff',
+    settingKo: '식당에서 자리를 잡고 인기 메뉴를 추천받거나 반찬을 추가로 요청해 보세요.',
+    settingEn: 'Order dishes, ask for recommendations, and request side-dish refills.',
+    image: '',
+    keyVocab: [
+      { ko: '추천 메뉴', en: 'recommended menu', pronunciation: 'chucheon menyu' },
+      { ko: '반찬 더 주세요', en: 'more side dishes please', pronunciation: 'banchan deo juseyo' },
+      { ko: '계산서 주세요', en: 'check please', pronunciation: 'gyesanseo juseyo' }
+    ],
+    rootNodeId: 'restaurant_root',
+    nodes: {}
+  },
+  {
+    id: 'pharmacy',
+    titleKo: '💊 약국에서 증상 설명 & 복약 상담',
+    titleEn: 'Pharmacy Health & Medication Advice',
+    badge: 'Health',
+    category: 'lifestyle' as const,
+    difficulty: 'Intermediate' as any,
+    roleKo: '약사님',
+    roleEn: 'Pharmacist',
+    settingKo: '두통, 감기 기운, 소화불량 등 증상을 설명하고 알맞은 약과 복용법을 상담해 보세요.',
+    settingEn: 'Describe your symptoms clearly and get proper medicine and dosage advice.',
+    image: '',
+    keyVocab: [
+      { ko: '두통 / 열나요', en: 'headache / fever', pronunciation: 'dutong / yeolnayo' },
+      { ko: '식후 30분', en: '30 mins after meal', pronunciation: 'sikhu samsipbun' },
+      { ko: '소화제 / 진통제', en: 'digestive pill / painkiller', pronunciation: 'sohwaje / jintongje' }
+    ],
+    rootNodeId: 'pharmacy_root',
+    nodes: {}
+  },
+  {
+    id: 'market',
+    titleKo: '🍎 광장시장 분식 주문 & 이모님 소통',
+    titleEn: 'Gwangjang Traditional Market Food',
+    badge: 'Street Food',
+    category: 'lifestyle' as const,
+    difficulty: 'Beginner+' as any,
+    roleKo: '시장 이모님',
+    roleEn: 'Market Vendor Auntie',
+    settingKo: '활기찬 전통시장에서 떡볶이, 순대, 빈대떡을 주문하고 친근하게 소통해 보세요.',
+    settingEn: 'Enjoy authentic Korean street food, interact warmly, and experience market culture.',
+    image: '',
+    keyVocab: [
+      { ko: '1인분 포장해 주세요', en: '1 serving takeout please', pronunciation: 'il-inbun pojanghae juseyo' },
+      { ko: '많이 맵나요?', en: 'Is it very spicy?', pronunciation: 'mani maemnayo?' },
+      { ko: '이모님 맛있어요!', en: 'Auntie, this is delicious!', pronunciation: 'imonim masisseoyo!' }
+    ],
+    rootNodeId: 'market_root',
+    nodes: {}
+  }
+];
+
 const ALL_SCENARIOS = [
   ...BRANCHING_SCENARIOS,
+  ...ADDITIONAL_SCENARIOS,
   {
     id: 'freetalk',
-    titleKo: '💬 원어민 지우 튜터 자유 대화',
+    titleKo: '💬 원어민 지우 튜터 1:1 자유 대화',
     titleEn: '1:1 Free Talk with Ji-woo',
     badge: '1:1 Free Talk',
     category: 'social' as const,
@@ -195,7 +291,7 @@ const ALL_SCENARIOS = [
     roleKo: '지우 튜터',
     roleEn: 'Native Tutor Ji-woo',
     settingKo: '자유로운 주제로 원어민 튜터와 일상, 취미, 고민, 한국 문화를 편안하게 이야기해 보세요.',
-    settingEn: 'Chat freely about any topic, daily life, hobbies, and Korea.',
+    settingEn: 'Chat freely about any topic, daily life, hobbies, and Korea with real-time AI.',
     image: '',
     keyVocab: [
       { ko: '오늘 하루 어땠어요?', en: 'How was your day?', pronunciation: 'oneul haru eottaesseoyo?' },
@@ -253,9 +349,11 @@ export default function AiConversationMenu({
   const [micSupported, setMicSupported] = useState<boolean>(true);
   const [inputMessage, setInputMessage] = useState<string>('');
   
-  // Track scenarios unlocked with credits
+  // Track scenarios unlocked with credits (taxi, freetalk, intro unlocked for free trial)
   const [unlockedScenarios, setUnlockedScenarios] = useState<Record<string, boolean>>({
-    taxi: true // Taxi is default unlocked for immediate trial
+    taxi: true,
+    freetalk: true,
+    intro: true
   });
   const [creditError, setCreditError] = useState<string | null>(null);
 
@@ -704,10 +802,10 @@ export default function AiConversationMenu({
             </span>
             <div className="flex flex-wrap gap-1.5">
               {[
-                { id: 'all', label: 'All (전체 10개)' },
-                { id: 'travel', label: '🚗 Travel & Transit (3)' },
-                { id: 'food', label: '☕ Food & Cafe (2)' },
-                { id: 'lifestyle', label: '🏪 Daily Life (3)' },
+                { id: 'all', label: 'All (전체 11개)' },
+                { id: 'travel', label: '🚗 Travel & Transit (2)' },
+                { id: 'food', label: '🍲 Food & Cafe (3)' },
+                { id: 'lifestyle', label: '🏪 Daily Life (4)' },
                 { id: 'social', label: '🤝 Social & Friends (2)' }
               ].map((cat) => (
                 <button
@@ -726,7 +824,33 @@ export default function AiConversationMenu({
           </div>
         </div>
 
-        {/* 10 Scenario Cards Grid */}
+        {/* Quick Launch: 1:1 Free Talk with Ji-woo Tutor */}
+        <div className="bg-gradient-to-r from-amber-600 via-amber-500 to-orange-500 rounded-xl p-4 sm:p-5 text-white shadow-md flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="space-y-1">
+            <div className="flex items-center space-x-2">
+              <span className="text-2xl">💬</span>
+              <h3 className="font-serif font-bold text-base sm:text-lg text-white">
+                원어민 AI 지우 튜터와 즉시 자유 회화 (Instant 1:1 Free Talk)
+              </h3>
+              <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-white/20 text-white font-mono">
+                무료 체험 가능
+              </span>
+            </div>
+            <p className="text-xs sm:text-sm text-white/90">
+              특정 상황 없이 일상, 한국 여행, 취미, 고민 등 자유로운 주제로 실시간 대화를 나누고 맞춤 교정을 받아보세요.
+            </p>
+          </div>
+          <button
+            onClick={() => handleSelectScenario('freetalk')}
+            className="px-5 py-2.5 bg-neutral-900 hover:bg-neutral-800 text-white font-bold rounded-lg text-xs sm:text-sm transition-all shadow-sm flex items-center justify-center space-x-2 shrink-0 cursor-pointer"
+          >
+            <Bot className="w-4 h-4 text-amber-400" />
+            <span>자유 대화 바로 시작</span>
+            <ArrowRight className="w-4 h-4 text-white" />
+          </button>
+        </div>
+
+        {/* 11 Scenario Cards Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {ALL_SCENARIOS
             .filter((sc) => activeCategory === 'all' || sc.category === activeCategory)

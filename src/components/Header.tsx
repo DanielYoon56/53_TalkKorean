@@ -14,6 +14,7 @@ interface HeaderProps {
   onOpenCreditModal?: () => void;
   onOpenAdmin?: (tab?: 'costs' | 'analytics' | 'simulator' | 'system' | 'users') => void;
   onSelectKCultureCategory?: (category: string) => void;
+  onNavigateToConversation?: () => void;
   currentLang?: string;
   onLanguageChange?: (lang: string) => void;
 }
@@ -25,7 +26,8 @@ export default function Header({
   credits = 120, 
   onOpenCreditModal,
   onOpenAdmin,
-  onSelectKCultureCategory
+  onSelectKCultureCategory,
+  onNavigateToConversation
 }: HeaderProps) {
   const [showKCultureMenu, setShowKCultureMenu] = useState<boolean>(false);
 
@@ -92,6 +94,22 @@ export default function Header({
           >
             <BookOpen className="w-3.5 h-3.5" />
             <span>Study</span>
+          </button>
+
+          <button
+            onClick={() => {
+              if (onNavigateToConversation) {
+                onNavigateToConversation();
+              } else {
+                handleTabClick('Dashboard');
+              }
+            }}
+            className="flex items-center space-x-1.5 px-3 py-1.5 rounded-sm text-xs uppercase tracking-wider font-semibold transition-all cursor-pointer text-amber-950 bg-amber-50 hover:bg-amber-100 border border-amber-300 font-bold shadow-2xs"
+            title="원어민 AI와 실시간 1:1 한국어 회화 연습"
+          >
+            <MessageSquare className="w-3.5 h-3.5 text-amber-700" />
+            <span>AI 회화</span>
+            <span className="px-1 py-0.2 text-[9px] bg-red-600 text-white rounded font-bold font-mono">LIVE</span>
           </button>
 
           <button

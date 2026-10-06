@@ -4,9 +4,26 @@ import { Shield, ExternalLink, HelpCircle, Heart } from 'lucide-react';
 interface FooterProps {
   onOpenAdmin: (tab?: 'costs' | 'analytics' | 'simulator' | 'system' | 'users' | 'creator') => void;
   setActiveTab: (tab: string) => void;
+  onNavigateSeoPath?: (path: string) => void;
 }
 
-export default function Footer({ onOpenAdmin, setActiveTab }: FooterProps) {
+export default function Footer({ onOpenAdmin, setActiveTab, onNavigateSeoPath }: FooterProps) {
+  const seoLinks = [
+    { name: 'Korean Conversation Practice', path: '/korean-conversation' },
+    { name: 'AI Korean Tutor', path: '/ai-korean-tutor' },
+    { name: 'Korean Speaking Practice', path: '/korean-speaking-practice' },
+    { name: 'Korean for Beginners', path: '/korean-for-beginners' },
+    { name: 'Travel Korean Dialogue', path: '/travel-korean' },
+    { name: 'Korean Pronunciation Guide', path: '/korean-pronunciation' },
+    { name: 'Daily Korean Conversation', path: '/daily-korean-conversation' },
+  ];
+
+  const handleSeoClick = (e: React.MouseEvent<HTMLAnchorElement>, path: string) => {
+    if (onNavigateSeoPath) {
+      e.preventDefault();
+      onNavigateSeoPath(path);
+    }
+  };
   return (
     <footer className="w-full bg-[#161616] text-editorial-muted border-t border-editorial-border/30 mt-auto">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
@@ -104,6 +121,25 @@ export default function Footer({ onOpenAdmin, setActiveTab }: FooterProps) {
 
         </div>
 
+        {/* SEO Landing Pages Nav Row for Search Engines & Visitors */}
+        <div className="py-6 border-b border-neutral-800 text-left space-y-2.5">
+          <h4 className="text-xs font-bold text-neutral-400 uppercase tracking-wider font-mono flex items-center space-x-1.5">
+            <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+            <span>Popular Korean Conversation Topics</span>
+          </h4>
+          <div className="flex flex-wrap gap-2 text-xs">
+            {seoLinks.map((item) => (
+              <a
+                key={item.path}
+                href={item.path}
+                onClick={(e) => handleSeoClick(e, item.path)}
+                className="px-2.5 py-1 rounded bg-neutral-900 border border-neutral-800 hover:border-amber-400 hover:text-white text-neutral-400 transition-colors"
+              >
+                {item.name}
+              </a>
+            ))}
+          </div>
+        </div>
 
         {/* Bottom Bar */}
         <div className="pt-6 flex flex-col sm:flex-row items-center justify-between text-xs text-neutral-500 gap-4">

@@ -51,6 +51,15 @@ export default function Home({ setActiveTab, onSelectKCultureCategory }: HomePro
           {/* CTAs */}
           <div className="flex flex-wrap items-center gap-3 pt-2">
             <button
+              onClick={() => setActiveTab('Dashboard', 'ai-conversation')}
+              className="px-6 py-3.5 bg-amber-600 hover:bg-amber-700 text-white rounded-sm font-bold tracking-wider text-xs uppercase transition-all flex items-center justify-center space-x-2 cursor-pointer shadow-sm"
+              title="원어민 AI와 실시간 1:1 한국어 회화 연습"
+            >
+              <span>AI 실시간 회화 (Live AI)</span>
+              <Sparkles className="w-4 h-4 text-amber-200" />
+            </button>
+
+            <button
               onClick={() => setActiveTab('Dashboard')}
               className="px-6 py-3.5 bg-editorial-text hover:bg-editorial-accent text-editorial-bg hover:text-white rounded-sm font-bold tracking-wider text-xs uppercase transition-all flex items-center justify-center space-x-2 cursor-pointer shadow-sm"
             >
