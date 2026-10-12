@@ -129,7 +129,7 @@ export default function Dashboard({ stats, setStats, setActiveTab, initialMenu, 
             { id: 'daily-quiz', icon: '⚡', labelEn: 'Daily Vocab Quiz', labelKo: '데일리 어휘 퀴즈 (+15 CR)', step: 'STEP 9', level: 'Level 3+' },
 
             // 5단계: 대화 시나리오 & 문화 심화 (Conversational & Culture)
-            { id: 'ai-conversation', icon: '🗣️', labelEn: 'AI Live Conversation', labelKo: 'AI 실시간 회화 & 시나리오', step: 'STEP 10', level: 'Level 4' },
+            { id: 'ai-conversation', icon: '🗣️', labelEn: 'Scenario Dialogue', labelKo: '실전 시나리오 인터랙티브 회화', step: 'STEP 10', level: 'Level 4' },
             { id: 'kdrama-vocab', icon: '🎬', labelEn: 'K-Drama Vocab & Lines', labelKo: 'K-드라마 명대사 & 실전 어휘', step: 'STEP 11', level: 'Advanced' },
             { id: 'cultural-etiquette', icon: '🤝', labelEn: 'Cultural Etiquette', labelKo: '한국 문화 & 에티켓 가이드', step: 'STEP 12', level: 'Advanced' },
             { id: 'k-slang', icon: '🔥', labelEn: 'Trendy K-Slang & Memes', labelKo: '최신 신조어 • 유행어', step: 'STEP 13', level: 'Master' },
@@ -482,8 +482,8 @@ export default function Dashboard({ stats, setStats, setActiveTab, initialMenu, 
               className="bg-editorial-bg hover:bg-editorial-accent-light/40 border border-editorial-border p-3.5 rounded-sm cursor-pointer text-left space-y-2 group transition-all"
             >
               <span className="text-lg">🗣️</span>
-              <h4 className="font-bold text-xs text-editorial-text group-hover:text-editorial-accent font-serif">AI Live Conversation</h4>
-              <p className="text-[10px] text-editorial-muted font-medium leading-relaxed">Real-time Korean conversation in taxis, cafes, restaurants & free talk! (5 mins)</p>
+              <h4 className="font-bold text-xs text-editorial-text group-hover:text-editorial-accent font-serif">Scenario Dialogue</h4>
+              <p className="text-[10px] text-editorial-muted font-medium leading-relaxed">Interactive situational dialogues in taxis, cafes, stores & markets with 3CR learning! (5 mins)</p>
             </div>
 
             <div 

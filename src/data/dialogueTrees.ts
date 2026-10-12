@@ -1179,6 +1179,606 @@ export const BRANCHING_SCENARIOS: BranchingScenario[] = [
         }
       }
     }
+  },
+
+  // 7. SEOUL METRO & TRANSIT
+  {
+    id: 'subway',
+    titleKo: '🚇 서울 지하철 환승 & 역무실 문의',
+    titleEn: 'Seoul Metro Transit & Directions',
+    badge: 'Transit & Mobility',
+    category: 'travel',
+    difficulty: 'Intermediate',
+    roleKo: '지하철 역무원 (AI) vs 승객 (회원님)',
+    roleEn: 'Metro Staff (AI) vs Passenger (You)',
+    settingKo: '유동 인구가 많은 서울 지하철 환승역 고객안내센터(역무실)입니다. 환승 방향, 출구 위치 및 교통카드 태그 오류를 역무원에게 문의해 보세요.',
+    settingEn: 'At the customer service center of a busy Seoul transit station. Ask about transfer gates, exit numbers, and card tap issues.',
+    image: 'https://images.unsplash.com/photo-1578632767115-351597cf2477?auto=format&fit=crop&w=600&q=80',
+    keyVocab: [
+      { ko: '갈아타다 (환승)', en: 'transfer lines', pronunciation: 'garatada (hwanseung)' },
+      { ko: '개찰구 오류', en: 'turnstile card error', pronunciation: 'gaechalgu oryu' },
+      { ko: '몇 번 출구예요?', en: 'Which exit is it?', pronunciation: 'myeot beon chulgueyo?' },
+      { ko: '교통카드 충전', en: 'transit card recharge', pronunciation: 'gyotongkadeu chungjeon' }
+    ],
+    rootNodeId: 'subway_root',
+    nodes: {
+      subway_root: {
+        id: 'subway_root',
+        stepIndex: 1,
+        totalSteps: 4,
+        speakerRoleKo: '지하철 역무원',
+        speakerRoleEn: 'Metro Staff',
+        aiMessageKo: '네, 고객안내센터입니다. 무엇을 도와드릴까요?',
+        aiMessageRomanized: 'Ne, gogaek-annae-senteo-imnida. Mueos-eul dowadeurilkkayo?',
+        aiMessageEn: 'Yes, station customer service. How may I assist you?',
+        sceneNoteKo: '역무원이 모니터에서 눈을 들어 승객의 질문을 경청합니다.',
+        choices: [
+          {
+            id: 'c_subway_transfer_2',
+            textKo: '실례합니다. 2호선으로 갈아타려면 어느 쪽 계단으로 내려가야 하나요?',
+            romanized: 'Sillyehamnida. Ihoseon-euro garataryeomyeon eoneu jjok gyedan-euro naeryeogaya hanayo?',
+            textEn: 'Excuse me. Which stairs should I take to transfer to Line 2?',
+            nuanceTip: '"~하려면 어느 쪽으로 가야 하나요?"는 방향 문의의 가장 정중한 표준 표현입니다.',
+            intentTag: '2호선 환승 계단 문의',
+            nextNodeId: 'subway_transfer_gate'
+          },
+          {
+            id: 'c_subway_exit_1',
+            textKo: '저기요, 시청 쪽 1번 출구로 나가려면 개찰구를 통과해야 하나요?',
+            romanized: 'Jeogiyo, Sicheong jjok ilbeon chulgu-ro nagaryeomyeon gaechalgu-reul tonggwahaeya hanayo?',
+            textEn: 'Excuse me, do I have to pass the turnstile to go toward Exit 1 for City Hall?',
+            nuanceTip: '출구 번호와 개찰구 통과 여부를 명확히 확인하는 실전 표현입니다.',
+            intentTag: '1번 출구 개찰구 확인',
+            nextNodeId: 'subway_transfer_gate'
+          }
+        ]
+      },
+
+      subway_transfer_gate: {
+        id: 'subway_transfer_gate',
+        stepIndex: 2,
+        totalSteps: 4,
+        speakerRoleKo: '지하철 역무원',
+        speakerRoleEn: 'Metro Staff',
+        aiMessageKo: '2호선은 바로 앞 초록색 바닥 유도선을 따라가셔서 에스컬레이터 타고 지하 2층으로 내려가시면 됩니다. 혹시 교통카드에 문제가 있으신가요?',
+        aiMessageRomanized: 'Ihoseon-eun baro ap choroksaek badak yudoseon-eul ttaragasyeoseo eseukeolleiteo tago jiha icheung-euro naeryeogasimyeon doemnida. Hoksi gyotongkadeu-e munje-ga isseusingayo?',
+        aiMessageEn: 'For Line 2, follow the green guide line on the floor in front and take the escalator down to B2. Is there any problem with your transit card?',
+        sceneNoteKo: '역무원이 바닥의 환승 유도 라인을 가리키며 친절히 안내합니다.',
+        choices: [
+          {
+            id: 'c_subway_card_tag_err',
+            textKo: '방금 개찰구에 카드를 찍었는데 "이미 처리되었습니다"라고 뜨며 문이 안 열려요.',
+            romanized: 'Banggeum gaechalgu-e kadeu-reul jjigeotneunde "imi cheoridoeeosseumnida"rago tteumyeo mun-i an yeollyeoyo.',
+            textEn: 'I tapped my card just now, but it said "Already processed" and the gate didn\'t open.',
+            nuanceTip: '개찰구 오류 메시지를 구체적으로 전달하여 역무원의 즉각 조치를 돕습니다.',
+            intentTag: '중복 태그 오류 설명',
+            nextNodeId: 'subway_error_card'
+          },
+          {
+            id: 'c_subway_time_ask',
+            textKo: '안내 감사합니다! 환승 플랫폼까지 걸어서 몇 분 정도 걸릴까요?',
+            romanized: 'Annae gamsahamnida! Hwanseung peullaethom-kkaji georeoseo myeot bun jeongdo geollilkkayo?',
+            textEn: 'Thank you for the guidance! How many minutes does it take to walk to the transfer platform?',
+            nuanceTip: '예상 이동 시간을 질의하여 지하철 탑승 계획을 세우는 자연스러운 후속 질문입니다.',
+            intentTag: '환승 소요 시간 질의',
+            nextNodeId: 'subway_error_card'
+          }
+        ]
+      },
+
+      subway_error_card: {
+        id: 'subway_error_card',
+        stepIndex: 3,
+        totalSteps: 4,
+        speakerRoleKo: '지하철 역무원',
+        speakerRoleEn: 'Metro Staff',
+        aiMessageKo: '아, 카드가 중복 인식되었군요. 카드 단말기에 한번 대주세요... 네, 오류 리셋 처리해 드렸습니다. 바로 비상 게이트로 통과하시면 됩니다!',
+        aiMessageRomanized: 'A, kadeu-ga jungbok insik-doeeotgunyo. Kadeu danmalgi-e hanbeon daejuseyo... Ne, oryu riset cheorihae deuryeosseumnida. Baro bisang geiteu-ro tonggwahasimyeon doemnida!',
+        aiMessageEn: 'Ah, the card was read twice. Please place it on the scanner... Done, error reset! You may pass through the emergency gate now!',
+        sceneNoteKo: '역무원이 단말기로 카드를 태그하여 승하차 상태를 정상으로 재설정합니다.',
+        choices: [
+          {
+            id: 'c_subway_thanks_gate',
+            textKo: '정말 감사합니다! 덕분에 제시간에 환승할 수 있겠어요. 수고하세요!',
+            romanized: 'Jeongmal gamsahamnida! Deokbune jesigan-e hwanseunghal su itgesseoyo. Sugohaseyo!',
+            textEn: 'Thank you so much! Thanks to you I can transfer on time. Have a good day!',
+            nuanceTip: '공공기관 및 지하철 직원에게 감사를 표하는 따뜻한 마무리 인사입니다.',
+            intentTag: '감사 및 수고하세요 인사',
+            nextNodeId: 'subway_end_success'
+          },
+          {
+            id: 'c_subway_t_recharge_ask',
+            textKo: '해결해 주셔서 감사합니다! 혹시 T-Money 카드 충전기는 어느 쪽에 있나요?',
+            romanized: 'Haegyeolhae jusyeoseo gamsahamnida! Hoksi T-Money kadeu chungjeongi-neun eoneu jjok-e 있nayo?',
+            textEn: 'Thank you for resolving it! By any chance, which side is the T-Money recharge machine?',
+            nuanceTip: '카드 충전기 위치까지 꼼꼼히 확인하는 스마트한 대중교통 이용자 표현입니다.',
+            intentTag: '교통카드 충전기 위치 질의',
+            nextNodeId: 'subway_end_success'
+          }
+        ]
+      },
+
+      subway_end_success: {
+        id: 'subway_end_success',
+        stepIndex: 4,
+        totalSteps: 4,
+        speakerRoleKo: '지하철 역무원',
+        speakerRoleEn: 'Metro Staff',
+        aiMessageKo: '네, 충전기는 개찰구 바로 오른쪽 1회용 발매기 옆에 있습니다. 2호선 안전하고 편안하게 이용하세요! 좋은 하루 보내세요.',
+        aiMessageRomanized: 'Ne, chungjeongi-neun gaechalgu baro oreunjok ilhoeyong balmaegi yeop-e isseumnida. Ihoseon anjeonhago pyeon-anhage iyonghaseyo! Joeun haru bonaeseyo.',
+        aiMessageEn: 'The recharge machine is right beside the single-journey ticket machine to the right of the turnstile. Have a safe and comfortable ride on Line 2! Have a great day.',
+        sceneNoteKo: '역무원이 미소를 지으며 비상 게이트를 열어줍니다.',
+        choices: [],
+        isEnding: true,
+        endingSummary: {
+          status: 'perfect',
+          badgeKo: '🚇 서울 메트로 환승 마스터 (Seoul Transit Explorer)',
+          badgeEn: 'Seoul Subway Navigator',
+          xpEarned: 50,
+          feedbackKo: '노선 환승 방향 질의, 교통카드 태그 오류 해결, 충전기 위치 확인까지 서울 메트로를 완벽하게 정복하셨습니다!',
+          feedbackEn: 'Mastered Seoul Metro route transfers, turnstile error resets, and station navigation with native confidence!',
+          keyPoints: [
+            '~으려면 어느 쪽으로 가야 하나요? (Asking directions politely)',
+            '개찰구 오류 증상 설명 (Explaining transit card issues)',
+            '수고하세요 마무리 에티켓 (Korean service farewell)'
+          ],
+          grammarNotes: [
+            { title: '동사 어간 + -(으)려면', desc: '목적이나 의도("환승하려면", "가려면")를 조건으로 나타낼 때 사용하는 핵심 연결어미입니다.' },
+            { title: '덕분에 ~할 수 있었어요', desc: '상대방의 도움에 진심 어린 감사를 표현할 때 사용하는 대표적 표현입니다.' }
+          ]
+        }
+      }
+    }
+  },
+
+  // 8. PHARMACY
+  {
+    id: 'pharmacy',
+    titleKo: '💊 약국에서 증상 설명 & 복약 상담',
+    titleEn: 'Pharmacy Health & Medication Advice',
+    badge: 'Health & Care',
+    category: 'lifestyle',
+    difficulty: 'Intermediate',
+    roleKo: '약사님 (AI) vs 환자 (회원님)',
+    roleEn: 'Pharmacist (AI) vs Customer (You)',
+    settingKo: '서울 도심의 깔끔한 동네 약국입니다. 감기 기운, 두통, 소화불량 등 본인의 신체 증상을 정확히 설명하고 안전한 복약 지도를 받아보세요.',
+    settingEn: 'At a neighborhood pharmacy in Seoul. Describe your physical symptoms clearly, check dosage instructions, and buy remedies.',
+    image: 'https://images.unsplash.com/photo-1586015555751-63bb77f4322a?auto=format&fit=crop&w=600&q=80',
+    keyVocab: [
+      { ko: '두통 / 열나요', en: 'headache / feverish', pronunciation: 'dutong / yeolnayo' },
+      { ko: '식후 30분 복용', en: 'take 30 mins after meal', pronunciation: 'sikhu samsipbun bogyong' },
+      { ko: '소화제 / 진통제', en: 'digestive aid / painkiller', pronunciation: 'sohwaje / jintongje' },
+      { ko: '졸리지 않는 약', en: 'non-drowsy medication', pronunciation: 'jolliji anneun yak' }
+    ],
+    rootNodeId: 'pharmacy_root',
+    nodes: {
+      pharmacy_root: {
+        id: 'pharmacy_root',
+        stepIndex: 1,
+        totalSteps: 4,
+        speakerRoleKo: '약사님',
+        speakerRoleEn: 'Pharmacist',
+        aiMessageKo: '어서 오세요! 어디가 불편하신가요? 증상을 말씀해 주세요.',
+        aiMessageRomanized: 'Eoseo oseyo! Eodiga bulpyeon-hasingayo? Jeungsang-eul malsseumhae juseyo.',
+        aiMessageEn: 'Welcome! What seems to be troubling you? Please tell me your symptoms.',
+        sceneNoteKo: '약사님이 카운터에서 증상을 경청할 준비를 합니다.',
+        choices: [
+          {
+            id: 'c_pharm_headache_cold',
+            textKo: '어제부터 머리가 띵하고 으슬으슬 감기 기운이 있어요. 열도 조금 나는 것 같아요.',
+            romanized: 'Eojebuteo meoriga ttinghago euseul-euseul gamgi giun-i isseoyo. Yeol-do jogeum naneun geot gatayo.',
+            textEn: 'Since yesterday my head feels heavy and I have chills with cold symptoms. I think I have a slight fever too.',
+            nuanceTip: '"머리가 띵하다", "으슬으슬하다"는 한국인들이 감기 초기에 가장 많이 쓰는 생생한 묘사입니다.',
+            intentTag: '두통 및 몸살감기 증상',
+            nextNodeId: 'pharmacy_symptom_detail'
+          },
+          {
+            id: 'c_pharm_stomach_ache',
+            textKo: '어제 과식을 해서 체한 것 같아요. 속이 메스껍고 더부룩한데 소화제 좀 주세요.',
+            romanized: 'Eoje gwasik-eul haeseo chehan geot gatayo. Sog-i meseukkeopgo deoburukhande sohwaje jom juseyo.',
+            textEn: 'I overate yesterday and feel indigestion. My stomach feels nauseous and bloated, please give me a digestive aid.',
+            nuanceTip: '"체하다", "속이 더부룩하다"는 소화기 장애를 설명하는 필수 어휘입니다.',
+            intentTag: '소화불량 및 급체 증상',
+            nextNodeId: 'pharmacy_symptom_detail'
+          }
+        ]
+      },
+
+      pharmacy_symptom_detail: {
+        id: 'pharmacy_symptom_detail',
+        stepIndex: 2,
+        totalSteps: 4,
+        speakerRoleKo: '약사님',
+        speakerRoleEn: 'Pharmacist',
+        aiMessageKo: '아, 환절기라 몸살감기 환자가 많네요. 혹시 약 복용하시고 운전이나 집중해서 일하셔야 하나요? 졸음이 오는 성분이 들어있을 수 있어서요.',
+        aiMessageRomanized: 'A, hwanjeolgi-ra momsalgamgi hwanja-ga manneyo. Hoksi yak bogyonghasigo unjeon-ina jipjunghaeseo ilhasyeoya hanayo? Joreum-i oneun seongbun-i deureoisseul su isseoseoyo.',
+        aiMessageEn: 'Ah, many people catch body chills during the seasonal change. Do you need to drive or do focused work after taking the medicine? It may contain drowsy components.',
+        sceneNoteKo: '약사님이 약통을 살피며 복용 환경을 세심하게 체크합니다.',
+        choices: [
+          {
+            id: 'c_pharm_non_drowsy',
+            textKo: '네, 오후에 업무 회의가 있어서 졸리지 않는 약으로 처방 부탁드려요.',
+            romanized: 'Ne, ohu-e eommu hoeui-ga isseoseo jolliji anneun yak-euro cheobang butakdeuryeoyo.',
+            textEn: 'Yes, I have business meetings this afternoon, so please give me non-drowsy medicine.',
+            nuanceTip: '"졸리지 않는 약"을 명확히 요청하여 일상생활에 지장이 없도록 하는 스마트한 표현입니다.',
+            intentTag: '졸리지 않는 성분 요청',
+            nextNodeId: 'pharmacy_dosage_guide'
+          },
+          {
+            id: 'c_pharm_fast_relief',
+            textKo: '퇴근하고 바로 푹 잘 예정이라, 밤에 푹 자면서 빨리 나을 수 있는 약으로 주세요.',
+            romanized: 'Toegeunhago baro puk jal yejeong-ira, bam-e puk jamyeonseo ppalli naeul su inneun yak-euro juseyo.',
+            textEn: 'I plan to sleep soundly right after work, so please give me something that helps me sleep well and recover fast.',
+            nuanceTip: '수면과 회복을 목적으로 약을 요청하는 솔직한 생활 회화입니다.',
+            intentTag: '숙면 및 빠른 회복 약 요청',
+            nextNodeId: 'pharmacy_dosage_guide'
+          }
+        ]
+      },
+
+      pharmacy_dosage_guide: {
+        id: 'pharmacy_dosage_guide',
+        stepIndex: 3,
+        totalSteps: 4,
+        speakerRoleKo: '약사님',
+        speakerRoleEn: 'Pharmacist',
+        aiMessageKo: '네! 해열진통 성분이 든 캡슐과 목감기 시럽입니다. 이 알약은 식사하시고 30분 뒤에 1알씩, 하루 3번 미온수와 함께 드세요. 빈속에 드시면 속 쓰릴 수 있습니다.',
+        aiMessageRomanized: 'Ne! Haeyeoljintong seongbun-i deun kaepsyul-gwa mokgamgi sireop-imnida. I allyak-eun siksa-hasigo samsipbun dwi-e il-al-ssik, haru sebeon mionsu-wa hamkke deuseyo. Binsok-e deusimyeon sok sseuril su isseumnida.',
+        aiMessageEn: 'Here is an antipyretic pain relief capsule and throat syrup. Take 1 capsule 30 minutes after meals, 3 times a day with warm water. Taking it on an empty stomach may cause heartburn.',
+        sceneNoteKo: '약사님이 약 봉투에 네임펜으로 "식후 30분 1정"을 적어줍니다.',
+        choices: [
+          {
+            id: 'c_pharm_water_recharge',
+            textKo: '네, 잘 알겠습니다. 혹시 비타민C 음료랑 마스크도 하나 같이 계산해 주시겠어요?',
+            romanized: 'Ne, jal algess-seumnida. Hoksi bitamin-C eumryo-rang maseukeu-do hana gati gyesanhae jusigesseoyo?',
+            textEn: 'Yes, understood well. Could you also ring up a Vitamin C drink and a mask together?',
+            nuanceTip: '약국에서 비타민 드링크나 마스크를 함께 구매할 때 쓰는 자연스러운 덧붙임 표현입니다.',
+            intentTag: '비타민 음료 & 마스크 추가',
+            nextNodeId: 'pharmacy_end_success'
+          },
+          {
+            id: 'c_pharm_check_meals',
+            textKo: '밥맛이 없어서 죽을 조금 먹고 복용해도 괜찮을까요?',
+            romanized: 'Bapmat-i eopseoseo juk-eul jogeum meokgo bogyonghaedo gwaenchanheulkkayo?',
+            textEn: 'I have no appetite, is it okay if I eat a little porridge before taking it?',
+            nuanceTip: '식사를 제대로 못 할 때 안전한 복약 방법을 재확인하는 모범적인 질문입니다.',
+            intentTag: '간편식 후 복용 여부 확인',
+            nextNodeId: 'pharmacy_end_success'
+          }
+        ]
+      },
+
+      pharmacy_end_success: {
+        id: 'pharmacy_end_success',
+        stepIndex: 4,
+        totalSteps: 4,
+        speakerRoleKo: '약사님',
+        speakerRoleEn: 'Pharmacist',
+        aiMessageKo: '네, 부드러운 죽이나 바나나 조금 드시고 약 드시면 위장에 부담 없습니다! 총 7,500원입니다. 따뜻한 물 자주 드시고 푹 쉬세요, 쾌차하세요!',
+        aiMessageRomanized: 'Ne, budeureoun juk-ina banana jogeum deusigo yak deusimyeon wijang-e budam eopseumnida! Chong chilcheon-obaekwon-imnida. Ttatteuthan mul jaju deusigo puk swiseyo, kwaechahaseyo!',
+        aiMessageEn: 'Yes, eating mild porridge or a banana will prevent stomach irritation! Total is 7,500 won. Drink warm water frequently and get plenty of rest, get well soon!',
+        sceneNoteKo: '약사님이 따뜻한 인사와 함께 약 봉투를 건넵니다.',
+        choices: [],
+        isEnding: true,
+        endingSummary: {
+          status: 'perfect',
+          badgeKo: '💊 건강 지킴이 & 스마트 환자 (Healthy Seoulite)',
+          badgeEn: 'Healthcare Communication Master',
+          xpEarned: 50,
+          feedbackKo: '구체적 신체 증상 설명, 졸리지 않는 옵션 요청, 식후 복약 지도 확인까지 한국 약국 회화를 완벽하게 해내셨습니다!',
+          feedbackEn: 'Mastered precise symptom descriptions, non-drowsy options, dosage schedules, and health etiquette!',
+          keyPoints: [
+            '머리가 띵하다 / 으슬으슬하다 (Describing nuanced symptoms)',
+            '졸리지 않는 약 요청 (Requesting non-drowsy medication)',
+            '식후 30분 복용 (Medication timetable etiquette)'
+          ],
+          grammarNotes: [
+            { title: '형용사 + ~아/어 보이다 / ~는 것 같다', desc: '자신의 상태나 기운을 완곡하고 자연스럽게 표현하는 화용적 패턴입니다.' },
+            { title: '쾌차하세요', desc: '환자에게 "빨리 나으세요"를 정중하고 품격 있게 건네는 격식 인사말입니다.' }
+          ]
+        }
+      }
+    }
+  },
+
+  // 9. TRADITIONAL KOREAN RESTAURANT
+  {
+    id: 'restaurant',
+    titleKo: '🍲 한국 전통 식당 식사 주문 & 찌개 요청',
+    titleEn: 'Korean Restaurant Dining & Ordering',
+    badge: 'K-Food & Dining',
+    category: 'food',
+    difficulty: 'Beginner',
+    roleKo: '식당 직원 (AI) vs 손님 (회원님)',
+    roleEn: 'Restaurant Staff (AI) vs Customer (You)',
+    settingKo: '인사동 골목의 정갈한 한식 백반 식당입니다. 대표 찌개 메뉴를 추천받고 덜 맵게 조리 요청하거나 밑반찬을 추가해 보세요.',
+    settingEn: 'At a traditional Korean Baekban restaurant in Insadong. Ask for signature stews, request less spicy seasoning, and enjoy side dishes.',
+    image: 'https://images.unsplash.com/photo-1553163147-622ab57be1c7?auto=format&fit=crop&w=600&q=80',
+    keyVocab: [
+      { ko: '추천 메뉴', en: 'recommended menu', pronunciation: 'chucheon menyu' },
+      { ko: '덜 맵게 해주세요', en: 'make it less spicy please', pronunciation: 'deol maepge haejuseyo' },
+      { ko: '반찬 더 주세요', en: 'more side dishes please', pronunciation: 'banchan deo juseyo' },
+      { ko: '공깃밥 추가', en: 'add extra rice bowl', pronunciation: 'gong-gitbap chuga' }
+    ],
+    rootNodeId: 'restaurant_root',
+    nodes: {
+      restaurant_root: {
+        id: 'restaurant_root',
+        stepIndex: 1,
+        totalSteps: 4,
+        speakerRoleKo: '식당 이모님',
+        speakerRoleEn: 'Restaurant Auntie',
+        aiMessageKo: '어서 오세요! 두 분이신가요? 안쪽 방석 자리나 창가 의자 자리 편한 곳에 앉으세요~',
+        aiMessageRomanized: 'Eoseo oseyo! Du bun-isingayo? Anjjok bangseok jari-na chang-ga uija jari pyeonhan got-e anjeuseyo~',
+        aiMessageEn: 'Welcome! Two people? Please take a seat either on the inner floor cushions or window chair tables~',
+        sceneNoteKo: '따뜻한 보리차 주전자와 물컵을 테이블에 올려놓습니다.',
+        choices: [
+          {
+            id: 'c_rest_window_seat',
+            textKo: '창가 의자 자리로 앉을게요. 이모님, 메뉴판 좀 볼 수 있을까요?',
+            romanized: 'Chang-ga uija jari-ro anjeulgeyo. Imonim, menyupan jom bol su isseulkkayo?',
+            textEn: 'We will sit by the window chair table. Auntie, may we look at the menu?',
+            nuanceTip: '원하는 좌석 형태를 고르고 메뉴판을 정중히 요청하는 자연스러운 시작입니다.',
+            intentTag: '창가석 착석 & 메뉴판 요청',
+            nextNodeId: 'restaurant_menu_order'
+          },
+          {
+            id: 'c_rest_signature_ask',
+            textKo: '감사합니다! 혹시 이 집에서 손님들이 제일 많이 찾는 시그니처 메뉴가 뭐예요?',
+            romanized: 'Gamsahamnida! Hoksi i jip-eseo sonnimdeul-i jeil mani chatneun sigeunicheo menyu-ga mwoyeyo?',
+            textEn: 'Thank you! By any chance, what is the most popular signature dish customers order here?',
+            nuanceTip: '식당 특화 인기 메뉴를 친근하게 추천해달라고 부탁하는 센스 있는 표현입니다.',
+            intentTag: '대표 메뉴 추천 문의',
+            nextNodeId: 'restaurant_menu_order'
+          }
+        ]
+      },
+
+      restaurant_menu_order: {
+        id: 'restaurant_menu_order',
+        stepIndex: 2,
+        totalSteps: 4,
+        speakerRoleKo: '식당 이모님',
+        speakerRoleEn: 'Restaurant Auntie',
+        aiMessageKo: '저희 집은 묵은지 돼지 김치찌개랑 뚝배기 제육볶음이 제일 인기예요! 돌솥비빔밥도 나물이 아주 신선하고 맛있어요.',
+        aiMessageRomanized: 'Jeohui jip-eun mugeunji dwaeji gimchi-jjigae-rang ttukbaegi jeyukbokkeum-i jeil inki-yeyo! Dolsot-bibimbap-do namul-i aju sinseonhago mas-isseoyo.',
+        aiMessageEn: 'Our aged Kimchi pork stew and earthenware spicy pork are the most popular! The hot stone bibimbap has fresh wild greens too.',
+        sceneNoteKo: '이모님이 메뉴판을 짚으며 자신 있는 메뉴들을 추천해 줍니다.',
+        choices: [
+          {
+            id: 'c_rest_stew_order',
+            textKo: '그럼 돼지 김치찌개 하나랑 돌솥비빔밥 하나 주세요. 찌개에 라면사리도 추가할게요!',
+            romanized: 'Geureom dwaeji gimchi-jjigae hana-rang dolsot-bibimbap hana juseyo. Jjigae-e ramyeon-sari-do chugahalgeyo!',
+            textEn: 'Then please give us one Kimchi pork stew and one hot stone bibimbap. We will also add ramen noodles to the stew!',
+            nuanceTip: '김치찌개에 "라면사리 추가"는 한국 백반 식당의 최고 정석 조합입니다.',
+            intentTag: '김치찌개 + 돌솥비빔밥 + 라면사리',
+            nextNodeId: 'restaurant_side_refill'
+          },
+          {
+            id: 'c_rest_less_spicy',
+            textKo: '제육볶음 하나랑 된장찌개 하나 주세요. 제가 매운 걸 잘 못 먹어서 제육볶음은 덜 맵게 부탁드려요!',
+            romanized: 'Jeyukbokkeum hana-rang doenjang-jjigae hana juseyo. Jega maeun geol jal mot meogeoseo jeyukbokkeum-eun deol maepge butakdeuryeoyo!',
+            textEn: 'One spicy pork and one soybean stew please. I cannot handle very spicy food, so please make the pork less spicy!',
+            nuanceTip: '"덜 맵게 부탁드려요"는 매운맛 조절을 요청하는 필수 한국어 표현입니다.',
+            intentTag: '덜 맵게 조리 요청',
+            nextNodeId: 'restaurant_side_refill'
+          }
+        ]
+      },
+
+      restaurant_side_refill: {
+        id: 'restaurant_side_refill',
+        stepIndex: 3,
+        totalSteps: 4,
+        speakerRoleKo: '식당 이모님',
+        speakerRoleEn: 'Restaurant Auntie',
+        aiMessageKo: '네, 보글보글 찌개랑 밑반찬 6가지 나왔습니다~ 어묵볶음이랑 잡채, 겉절이 김치 모자라면 언제든 더 달라고 하세요!',
+        aiMessageRomanized: 'Ne, bogeul-bogeul jjigae-rang mitbanchan yeoseot-gaji nawasseumnida~ Eomuk-bokkeum-irang japchae, geotjeori gimchi mojaramyeon eonjedeun deo dallago haseyo!',
+        aiMessageEn: 'Here is the bubbling stew and 6 side dishes~ If you need more stir-fried fish cakes, japchae, or fresh kimchi, ask anytime!',
+        sceneNoteKo: '뚝배기에서 찌개가 보글보글 끓고 정갈한 밑반찬이 차려집니다.',
+        choices: [
+          {
+            id: 'c_rest_banchan_refill',
+            textKo: '이모님! 잡채랑 어묵볶음이 너무 맛있는데 조금만 더 주실 수 있나요?',
+            romanized: 'Imonim! Japchae-rang eomuk-bokkeum-i neomu mas-itneunde jogeumman deo jusil su 있nayo?',
+            textEn: 'Auntie! The japchae and fish cakes are so delicious, could you give us a little more?',
+            nuanceTip: '"너무 맛있는데 조금만 더 주실 수 있나요?"는 칭찬과 함께 부탁하는 가장 사랑받는 리필 화법입니다.',
+            intentTag: '반찬 칭찬 및 리필 요청',
+            nextNodeId: 'restaurant_end_success'
+          },
+          {
+            id: 'c_rest_apron_water',
+            textKo: '감사합니다! 혹시 옷에 튈까 봐 그런데 앞치마 두 개만 가져다주실 수 있나요?',
+            romanized: 'Gamsahamnida! Hoksi ot-e twilkka bwa geureonde apchima du gae-man gajyeodajusil su 있nayo?',
+            textEn: 'Thank you! In case it splatters on our clothes, could you bring us two aprons?',
+            nuanceTip: '빨간 찌개를 먹기 전 "앞치마"를 요청하는 한국 식당의 생활 지혜입니다.',
+            intentTag: '앞치마 요청',
+            nextNodeId: 'restaurant_end_success'
+          }
+        ]
+      },
+
+      restaurant_end_success: {
+        id: 'restaurant_end_success',
+        stepIndex: 4,
+        totalSteps: 4,
+        speakerRoleKo: '식당 이모님',
+        speakerRoleEn: 'Restaurant Auntie',
+        aiMessageKo: '아이구, 맛있게 잘 먹어주니 내가 더 기분이 좋네! 깨끗한 앞치마랑 잡채 방금 무친 거 듬뿍 담아왔어요. 밥 부족하면 밥솥에서 더 퍼다 먹어요~',
+        aiMessageRomanized: 'Aigu, mas-itge jal meogeojuni naega deo gibun-i jone! Kkaekkeut-han apchima-rang japchae banggeum muchin geo deumpuk dam-awasseoyo. Bap bujokhamyeon bapsot-eseo deo peoda meogeoyo~',
+        aiMessageEn: 'Aww, seeing you enjoy the food makes me so happy! Brought clean aprons and a generous bowl of freshly seasoned japchae. Take more rice from the cooker if needed~',
+        sceneNoteKo: '이모님이 푸근한 미소로 잡채를 가득 담아 테이블에 놓아줍니다.',
+        choices: [],
+        isEnding: true,
+        endingSummary: {
+          status: 'perfect',
+          badgeKo: '🍲 백반 맛집 단골손님 (K-Dining Master)',
+          badgeEn: 'Korean Dining Etiquette Pro',
+          xpEarned: 50,
+          feedbackKo: '메뉴 추천 청취, 덜 맵게 조리 옵션, 사리 추가 및 기분 좋은 반찬 리필 화법까지 한국 식당 소통을 완벽히 마스터하셨습니다!',
+          feedbackEn: 'Mastered authentic Korean restaurant ordering, spicy seasoning adjustments, ramen add-ons, and warm banchan refill etiquette!',
+          keyPoints: [
+            '덜 맵게 해주세요 (Requesting milder spiciness)',
+            '사리 추가 (Adding ramen or noodle portions)',
+            '앞치마 요청 및 반찬 칭찬 리필 (Apron requests and complimenting banchan)'
+          ],
+          grammarNotes: [
+            { title: '부사 "덜" + 형용사', desc: '정도를 낮출 때("덜 맵게", "덜 달게") 사용하는 대표적인 표현입니다.' },
+            { title: '~을까 봐 그런데', desc: '우려되는 상황("옷에 튈까 봐")을 이유로 대며 부탁할 때 부드럽게 완곡화하는 문법입니다.' }
+          ]
+        }
+      }
+    }
+  },
+
+  // 10. TRADITIONAL STREET MARKET (GWANGJANG MARKET)
+  {
+    id: 'market',
+    titleKo: '🍎 광장시장 분식 주문 & 이모님 정겨운 소통',
+    titleEn: 'Gwangjang Traditional Market Street Food',
+    badge: 'Street Food & Culture',
+    category: 'lifestyle',
+    difficulty: 'Beginner',
+    roleKo: '시장 이모님 (AI) vs 손님 (회원님)',
+    roleEn: 'Market Vendor Auntie (AI) vs Customer (You)',
+    settingKo: '활기찬 종로 광장시장 포장마차 분식 골목입니다. 떡볶이, 찹쌀순대, 마약김밥을 주문하고 따끈한 어묵 국물을 마시며 이모님과 정을 나눠보세요.',
+    settingEn: 'At the bustling street food alleys of Gwangjang Market. Order tteokbokki, blood sausage, and mini gimbap with warm broth.',
+    image: 'https://images.unsplash.com/photo-1541614101331-1a5a3a194e92?auto=format&fit=crop&w=600&q=80',
+    keyVocab: [
+      { ko: '1인분 포장 / 먹고 가요', en: '1 serving takeout / dine here', pronunciation: 'il-inbun pojang / meokgo gayo' },
+      { ko: '내장 섞어 주세요', en: 'mix with organs please', pronunciation: 'naejang seokkeo juseyo' },
+      { ko: '어묵 국물', en: 'fish cake broth', pronunciation: 'eomuk gukmul' },
+      { ko: '마약김밥 (겨자 소스)', en: 'mini gimbap with mustard sauce', pronunciation: 'mayak-gimbap' }
+    ],
+    rootNodeId: 'market_root',
+    nodes: {
+      market_root: {
+        id: 'market_root',
+        stepIndex: 1,
+        totalSteps: 4,
+        speakerRoleKo: '시장 이모님',
+        speakerRoleEn: 'Market Vendor Auntie',
+        aiMessageKo: '어서 와 학생! 방금 만든 쫀득쫀득한 쌀떡볶이랑 따끈한 순대 있어. 앉아서 먹고 갈 거지?',
+        aiMessageRomanized: 'Eoseo wa haksaeng! Banggeum mandeun jjondeuk-jjondeuk-han ssal-tteokbokki-rang ttakkeunhan sundae isseo. Anj-aseo meokgo gal geoji?',
+        aiMessageEn: 'Welcome student! Just made chewy rice tteokbokki and warm sundae. You\'ll sit and eat here, right?',
+        sceneNoteKo: '김이 모락모락 나는 새빨간 떡볶이 판 앞에서 이모님이 반갑게 맞이합니다.',
+        choices: [
+          {
+            id: 'c_market_eat_here',
+            textKo: '네, 여기서 먹고 갈게요! 쌀떡볶이 1인분이랑 찹쌀순대 1인분 주세요.',
+            romanized: 'Ne, yeogiseo meokgo galgeyo! Ssal-tteokbokki il-inbun-irang chapssal-sundae il-inbun juseyo.',
+            textEn: 'Yes, I will eat here! 1 serving of rice tteokbokki and 1 serving of sticky sundae please.',
+            nuanceTip: '매장에서 먹고 갈 것임을 밝히고 메뉴별 인분 수를 주문하는 모범적인 시장 표현입니다.',
+            intentTag: '먹고 가기 + 떡볶이 1, 순대 1',
+            nextNodeId: 'market_spicy_soup'
+          },
+          {
+            id: 'c_market_pack_combo',
+            textKo: '이모님, 숙소 가서 먹으려고 하는데 떡볶이랑 모둠 튀김 1인분씩 포장도 되나요?',
+            romanized: 'Imonim, sukso gaseo meogeuryeogo haneunde tteokbokki-rang modum twigim il-inbun-ssik pojang-do doenayo?',
+            textEn: 'Auntie, I want to eat at my lodging, can you pack 1 serving of tteokbokki and fried snacks for takeout?',
+            nuanceTip: '포장(Takeout) 여부를 확인하며 친근하게 질문하는 표현입니다.',
+            intentTag: '포장 주문 확인',
+            nextNodeId: 'market_spicy_soup'
+          }
+        ]
+      },
+
+      market_spicy_soup: {
+        id: 'market_spicy_soup',
+        stepIndex: 2,
+        totalSteps: 4,
+        speakerRoleKo: '시장 이모님',
+        speakerRoleEn: 'Market Vendor Auntie',
+        aiMessageKo: '자, 종이컵에 따끈한 어묵 국물 먼저 마시고 있어~ 순대에 간이나 허파 같은 내장도 골고루 섞어줄까, 아니면 순대만 줄까?',
+        aiMessageRomanized: 'Ja, jong-ikeop-e ttakkeunhan eomuk gukmul meonjeo masigo isseo~ Sundae-e gan-ina heopa gateun naejang-do golgoru seokkeojulkka, animyeon sundae-man julkka?',
+        aiMessageEn: 'Here, drink some warm fish cake broth in a paper cup first~ Shall I mix in liver and lung organs with the sundae, or just pure sausage?',
+        sceneNoteKo: '파가 송송 썰린 따끈한 어묵 국물 종이컵을 손에 쥐여줍니다.',
+        choices: [
+          {
+            id: 'c_market_mix_organs',
+            textKo: '간이랑 내장 다 좋아해요! 골고루 섞어 주시면 감사하겠습니다.',
+            romanized: 'Gan-irang naejang da joahaeyo! Golgoru seokkeo jusimyeon gamsahagess-seumnida.',
+            textEn: 'I love liver and all the organs! I would appreciate it if you mix them evenly.',
+            nuanceTip: '한국인들이 분식집에서 순대 주문할 때 가장 좋아하는 취향 표현입니다.',
+            intentTag: '내장 골고루 섞어 요청',
+            nextNodeId: 'market_extra_treat'
+          },
+          {
+            id: 'c_market_sundae_only',
+            textKo: '저는 내장은 조금 어려워서 찰순대만 듬뿍 썰어주세요!',
+            romanized: 'Jeoneun naejang-eun jogeum eoryeowoseo chal-sundae-man deumpuk sseoreojuseyo!',
+            textEn: 'Organs are a bit difficult for me, so please just slice plenty of sticky sundae!',
+            nuanceTip: '부담스러운 부위를 거절할 때 "조금 어렵다"라고 완곡하게 말하는 세련된 화법입니다.',
+            intentTag: '순대만 요청 (완곡한 거절)',
+            nextNodeId: 'market_extra_treat'
+          }
+        ]
+      },
+
+      market_extra_treat: {
+        id: 'market_extra_treat',
+        stepIndex: 3,
+        totalSteps: 4,
+        speakerRoleKo: '시장 이모님',
+        speakerRoleEn: 'Market Vendor Auntie',
+        aiMessageKo: '푸짐하게 썰어 담았어! 떡볶이 국물에 순대 콕 찍어 먹으면 꿀맛이야. 우리 집 겨자 소스 찍어 먹는 꼬마 마약김밥도 진짜 유명한데 맛볼래?',
+        aiMessageRomanized: 'Pujimhage sseoreo dam-asseo! Tteokbokki gukmul-e sundae kok jjigeo meogeumyeon kkulmas-iya. Uri jip gyeoja soseu jjigeo meogneun kkoma mayak-gimbap-do jinjja yumyeonghande matbollae?',
+        aiMessageEn: 'Generously sliced! Dipping sundae into tteokbokki sauce tastes like honey. Our mini gimbap dipped in mustard sauce is super famous too, wanna try?',
+        sceneNoteKo: '새빨간 떡볶이와 김이 나는 순대 접시가 눈앞에 차려집니다.',
+        choices: [
+          {
+            id: 'c_market_add_gimbap',
+            textKo: '와, 떡볶이 국물에 김밥 찍어 먹으면 최고겠네요! 꼬마김밥 1인분도 추가해 주세요.',
+            romanized: 'Wa, tteokbokki gukmul-e gimbap jjigeo meogeumyeon choegogetneyo! Kkoma-gimbap il-inbun-do chugahae juseyo.',
+            textEn: 'Wow, dipping gimbap into tteokbokki sauce would be the best! Please add 1 serving of mini gimbap too.',
+            nuanceTip: '시장 이모님의 추천에 기분 좋게 호응하며 세트를 완성하는 소통 표현입니다.',
+            intentTag: '꼬마김밥 추가 주문',
+            nextNodeId: 'market_end_success'
+          },
+          {
+            id: 'c_market_full_pay',
+            textKo: '이것만으로도 양이 진짜 많네요! 먹어보고 부족하면 더 시킬게요. 계좌이체나 카드 되나요?',
+            romanized: 'Igeot-man-eurodo yang-i jinjja manneyo! Meogeobogo bujokhamyeon deo sikilgeyo. Gyejwai-che-na kadeu doenayo?',
+            textEn: 'This alone is already a lot of food! I will try this first. Do you accept bank transfer or card?',
+            nuanceTip: '정중하게 양해를 구하고 결제 수단을 확인하는 실속 있는 회화입니다.',
+            intentTag: '양 칭찬 및 결제 수단 확인',
+            nextNodeId: 'market_end_success'
+          }
+        ]
+      },
+
+      market_end_success: {
+        id: 'market_end_success',
+        stepIndex: 4,
+        totalSteps: 4,
+        speakerRoleKo: '시장 이모님',
+        speakerRoleEn: 'Market Vendor Auntie',
+        aiMessageKo: '당연히 카드도 되고 계좌이체도 되지! 어묵 국물 식으면 언제든 더 달라고 해~ 광장시장 와줘서 고마워, 맛있게 먹고 재미있게 구경하고 가!',
+        aiMessageRomanized: 'Dang-yeonhi kadeu-do doego gyejwai-che-do doeji! Eomuk gukmul sig-eumyeon eonjedeun deo dallago hae~ Gwangjang sijang wajwoseo gomawo, mas-itge meokgo jaemi-itge gugyeonghago ga!',
+        aiMessageEn: 'Of course card and bank transfer both work! Tell me anytime if the broth gets cold~ Thanks for coming to Gwangjang Market, enjoy your meal and have fun sightseeing!',
+        sceneNoteKo: '이모님이 환한 미소로 어묵 국물 리필을 권하며 정을 베풉니다.',
+        choices: [],
+        isEnding: true,
+        endingSummary: {
+          status: 'perfect',
+          badgeKo: '🍎 광장시장 정겨운 단골 (Market Food Explorer)',
+          badgeEn: 'Traditional Market Master',
+          xpEarned: 50,
+          feedbackKo: '떡볶이·순대 주문, 내장 섞기 옵션, 떡볶이 국물 찍어먹기 팁과 따뜻한 시장 소통까지 한국 전통시장의 정(情)을 완벽하게 체험하셨습니다!',
+          feedbackEn: 'Mastered authentic street food ordering, organ mixing choices, dipping etiquette, and heartfelt traditional market interactions!',
+          keyPoints: [
+            '내장 골고루 섞어 주세요 (Mixing organs with sundae)',
+            '국물에 찍어 먹다 (Dipping food into tteokbokki sauce)',
+            '시장 계좌이체/카드 결제 확인 (Market payment check)'
+          ],
+          grammarNotes: [
+            { title: '어렵다 (완곡한 거절)', desc: '한국에서는 원치 않는 제안을 직설적으로 거절하기보다 "조금 어렵다"라고 돌려 말하는 것이 예의입니다.' },
+            { title: '~에 찍어 먹다', desc: '소스나 국물에 음식을 살짝 묻혀 먹는 대표적인 식사 동작 표현입니다.' }
+          ]
+        }
+      }
+    }
   }
 ];
 

@@ -1,6 +1,7 @@
-import React from 'react';
-import { CultureItem, KCultureCategory } from '../data/kCultureData';
-import { Sparkles, ArrowRight } from 'lucide-react';
+import React, { useState } from 'react';
+import { CultureItem, KCultureCategory, getGenreEnglish, getSubgenreEnglish } from '../data/kCultureData';
+import { Sparkles, ArrowRight, Volume2, VolumeX, BookOpen, Quote } from 'lucide-react';
+import { speakKoreanText } from '../utils/tts';
 
 interface CultureCardTemplateProps {
   item: CultureItem;
@@ -13,15 +14,47 @@ export default function CultureCardTemplate({
   onSelectCategory,
   showHeaderTitle = true,
 }: CultureCardTemplateProps) {
+  const [isPlayingQuote, setIsPlayingQuote] = useState<boolean>(false);
+
+  const handleTogglePlayQuote = (text: string) => {
+    if (isPlayingQuote) {
+      if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+      }
+      setIsPlayingQuote(false);
+    } else {
+      setIsPlayingQuote(true);
+      speakKoreanText(text, {
+        role: 'tutor',
+        rate: 0.95,
+        onEnd: () => setIsPlayingQuote(false),
+        onError: () => setIsPlayingQuote(false),
+      });
+    }
+  };
+
   return (
     <div className="bg-white border border-editorial-border rounded-sm p-6 sm:p-8 space-y-8 shadow-none">
       {/* Optional Top Title Header */}
       {showHeaderTitle && (
         <div className="space-y-3 border-b border-editorial-border/60 pb-5">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <span className="inline-flex items-center space-x-1.5 bg-editorial-accent-light text-editorial-accent border border-editorial-border px-3 py-1 rounded-sm text-[10px] font-bold uppercase tracking-widest">
-              <span>Cultural HUB • {item.category}</span>
-            </span>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="inline-flex items-center space-x-1.5 bg-editorial-accent-light text-editorial-accent border border-editorial-border px-3 py-1 rounded-sm text-[10px] font-bold uppercase tracking-widest">
+                <span>Cultural HUB • {item.category}</span>
+              </span>
+              {item.literatureGenre && (
+                <span className="inline-flex items-baseline space-x-1.5 bg-sky-900 text-white px-2.5 py-0.5 rounded-sm shadow-xs">
+                  <span className="text-xs sm:text-sm font-bold tracking-tight font-sans">
+                    {getGenreEnglish(item.literatureGenre)}
+                    {item.literatureSubgenre ? ` • ${getSubgenreEnglish(item.literatureSubgenre)}` : ''}
+                  </span>
+                  <span className="text-[10px] sm:text-[11px] text-sky-200 font-medium">
+                    ({item.literatureGenre}{item.literatureSubgenre ? ` · ${item.literatureSubgenre}` : ''})
+                  </span>
+                </span>
+              )}
+            </div>
             <span className="text-xs font-mono font-bold text-editorial-muted">
               {item.badge}
             </span>
@@ -97,6 +130,61 @@ export default function CultureCardTemplate({
 
         {/* Culture Commentary, Key Vocabulary & Method Column */}
         <div className="lg:col-span-7 space-y-6 text-left">
+          {/* Literature Representative Excerpt Card (If Available) */}
+          {item.literatureExcerpt && (
+            <div className="bg-sky-50/70 border-2 border-sky-300 rounded-sm p-4 sm:p-5 space-y-3.5 shadow-xs">
+              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-sky-200/80 pb-2.5">
+                <div className="flex items-center space-x-2">
+                  <span className="p-1 rounded-sm bg-sky-200/70 text-sky-800">
+                    <Quote className="w-4 h-4" />
+                  </span>
+                  <div>
+                    <span className="text-xs font-bold text-sky-950 uppercase tracking-wider block">
+                      대표 원문 및 명구절 발췌 (Representative Excerpt)
+                    </span>
+                    <span className="text-[11px] text-sky-800 font-medium">
+                      {item.literatureExcerpt.authorOrSource}
+                    </span>
+                  </div>
+                </div>
+                {item.literatureExcerpt.literaryDevice && (
+                  <span className="text-[10px] font-mono font-bold bg-sky-200/90 text-sky-900 px-2 py-0.5 rounded-sm border border-sky-300">
+                    ✨ {item.literatureExcerpt.literaryDevice}
+                  </span>
+                )}
+              </div>
+
+              <blockquote className="border-l-4 border-sky-500 pl-4 py-1 space-y-2">
+                <p className="text-sm sm:text-base font-serif font-bold text-neutral-900 leading-relaxed tracking-tight">
+                  "{item.literatureExcerpt.quoteKo}"
+                </p>
+                {item.literatureExcerpt.quoteEn && (
+                  <p className="text-xs text-neutral-600 italic leading-relaxed">
+                    "{item.literatureExcerpt.quoteEn}"
+                  </p>
+                )}
+              </blockquote>
+
+              <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-sky-200/70 text-xs">
+                <p className="text-[11px] text-sky-900/90 font-medium max-w-md">
+                  💡 {item.literatureExcerpt.contextNoteKo || '원문을 소리 내어 낭독하며 한국 문학의 호흡과 정서를 느껴보세요.'}
+                </p>
+                <button
+                  onClick={() => handleTogglePlayQuote(item.literatureExcerpt!.quoteKo)}
+                  className={`inline-flex items-center space-x-1.5 px-3.5 py-1.5 rounded-sm text-xs font-bold transition-all cursor-pointer shadow-xs ${
+                    isPlayingQuote
+                      ? 'bg-rose-600 hover:bg-rose-700 text-white animate-pulse'
+                      : 'bg-white hover:bg-sky-100 text-sky-900 border border-sky-300'
+                  }`}
+                  title="원문 발췌 한국어 음성 낭독 듣기"
+                >
+                  {isPlayingQuote ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5 text-sky-600" />}
+                  <span>{isPlayingQuote ? '낭독 정지 (Stop)' : '원문 낭독 듣기 (TTS)'}</span>
+                </button>
+              </div>
+            </div>
+          )}
+
           <div className="space-y-2">
             <h3 className="text-xl sm:text-2xl font-bold font-serif text-editorial-text">
               {item.heritageTitleKo}

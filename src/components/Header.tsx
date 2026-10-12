@@ -35,7 +35,7 @@ export default function Header({
     { label: 'K-FOOD', icon: <Utensils className="w-3.5 h-3.5 text-amber-600" /> },
     { label: 'K-WEAR', icon: <Shirt className="w-3.5 h-3.5 text-pink-600" /> },
     { label: 'K-HOUSE & PALACE', icon: <HomeIcon className="w-3.5 h-3.5 text-emerald-600" /> },
-    { label: 'K-Literature', icon: <BookOpen className="w-3.5 h-3.5 text-sky-600" /> },
+    { label: 'K-Literature', desc: '신화·전설·민담·전래동화·속담·수수께끼·고전·현대문학', badge: '10대 장르', icon: <BookOpen className="w-3.5 h-3.5 text-sky-600" /> },
     { label: 'K-MUSIC', icon: <Music className="w-3.5 h-3.5 text-purple-600" /> },
     { label: 'K-PLAY', icon: <Gamepad2 className="w-3.5 h-3.5 text-rose-600" /> },
     { label: 'K-ART', icon: <Palette className="w-3.5 h-3.5 text-teal-600" /> },
@@ -104,12 +104,12 @@ export default function Header({
                 handleTabClick('Dashboard');
               }
             }}
-            className="flex items-center space-x-1.5 px-3 py-1.5 rounded-sm text-xs uppercase tracking-wider font-semibold transition-all cursor-pointer text-amber-950 bg-amber-50 hover:bg-amber-100 border border-amber-300 font-bold shadow-2xs"
-            title="원어민 AI와 실시간 1:1 한국어 회화 연습"
+            className="flex items-center space-x-1.5 px-3.5 py-1.5 rounded-sm text-xs uppercase tracking-wider font-semibold transition-all cursor-pointer text-amber-950 bg-gradient-to-r from-amber-50 via-amber-100/70 to-orange-50 hover:from-amber-100 hover:to-orange-100 border border-amber-300 hover:border-amber-400 font-bold shadow-2xs hover:shadow-xs ring-1 ring-amber-400/20 active:scale-98"
+            title="한국 현지 10대 실전 상황별 인터랙티브 분기 시나리오 회화 연습"
           >
             <MessageSquare className="w-3.5 h-3.5 text-amber-700" />
-            <span>AI 회화</span>
-            <span className="px-1 py-0.2 text-[9px] bg-red-600 text-white rounded font-bold font-mono">LIVE</span>
+            <span className="font-bold">시나리오 회화</span>
+            <span className="px-1.5 py-0.2 text-[9px] bg-amber-600 text-white rounded font-bold font-mono tracking-wider shadow-2xs">SCENARIO</span>
           </button>
 
           <button
@@ -179,10 +179,17 @@ export default function Header({
                   <button
                     key={sub.label}
                     onClick={() => handleSubmenuClick(sub.label)}
-                    className="w-full text-left px-3.5 py-2 text-xs font-semibold text-editorial-text hover:bg-editorial-bg hover:text-editorial-accent flex items-center space-x-2 transition-colors cursor-pointer"
+                    className="w-full text-left px-3.5 py-2 text-xs font-semibold text-editorial-text hover:bg-editorial-bg hover:text-editorial-accent flex items-center justify-between transition-colors cursor-pointer"
                   >
-                    {sub.icon}
-                    <span>{sub.label}</span>
+                    <div className="flex items-center space-x-2 truncate">
+                      {sub.icon}
+                      <span>{sub.label}</span>
+                    </div>
+                    {sub.badge && (
+                      <span className="text-[9px] font-mono font-bold px-1.5 py-0.2 rounded-sm bg-sky-100 text-sky-800 border border-sky-200 shrink-0">
+                        {sub.badge}
+                      </span>
+                    )}
                   </button>
                 ))}
               </div>

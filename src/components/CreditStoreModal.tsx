@@ -35,42 +35,22 @@ export default function CreditStoreModal({
       return;
     }
 
-    let creditBonus = 0;
-    if (planId === 'pro') creditBonus = 1000;
-    if (planId === 'unlimited') creditBonus = 5000;
+    if (planId === 'free') {
+      onUpdateStats({
+        ...stats,
+        plan: 'free',
+      });
+      showToast('기본 무료 요금제로 변경되었습니다.');
+      return;
+    }
 
-    const newTx: CreditTransaction = {
-      id: `tx-${Date.now()}`,
-      date: 'Just now',
-      amount: creditBonus,
-      description: `Plan Upgrade to ${planId.toUpperCase()} (요금제 변경 보너스)`
-    };
-
-    onUpdateStats({
-      ...stats,
-      plan: planId,
-      credits: stats.credits + creditBonus,
-      creditHistory: [newTx, ...stats.creditHistory]
-    });
-
-    showToast(`🎉 ${planId.toUpperCase()} 플랜으로 성공적으로 변경되었습니다! (+${creditBonus} 크레딧 충전)`);
+    // Direct client-side purchase bypass disabled for security
+    showToast('유료 멤버십 플랜 변경은 하단의 정식 토스페이먼츠(Toss Payments) 결제창을 통해 진행되어야 합니다.');
   };
 
-  const handleBuyCredits = (amount: number, priceStr: string, packName: string) => {
-    const newTx: CreditTransaction = {
-      id: `tx-${Date.now()}`,
-      date: 'Just now',
-      amount: amount,
-      description: `Credit Pack Purchase (${packName}) - ${priceStr}`
-    };
-
-    onUpdateStats({
-      ...stats,
-      credits: stats.credits + amount,
-      creditHistory: [newTx, ...stats.creditHistory]
-    });
-
-    showToast(`⚡ ${amount} 크레딧이 성공적으로 충전되었습니다!`);
+  const handleBuyCredits = (_amount: number, _priceStr: string, _packName: string) => {
+    // Direct client-side purchase bypass disabled for security
+    showToast('크레딧 팩 구매는 정식 PG 결제 승인을 통해서만 충전됩니다. 토스 결제창을 이용해주세요.');
   };
 
   return (

@@ -50,12 +50,13 @@ export default function AdminModal({
     }
   }, [isOpen, initialTab]);
 
-  // Password Authentication State
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
-  const [passwordInput, setPasswordInput] = useState<string>('');
-  const [passwordError, setPasswordError] = useState<string | null>(null);
-  const [showPassword, setShowPassword] = useState<boolean>(false);
-  
+  // Admin Console Access State
+  // Security Remediation: Hardcoded client-side password ('admin0691') removed.
+  // In Phase 1, the monitoring console is accessible in read-only observation mode.
+  // Sensitive administrative actions (e.g. data wiping, server credential overrides) are strictly disabled
+  // pending server-side session authentication.
+  const [isAuthenticated] = useState<boolean>(true);
+
   // Cost Simulator States
   const [dau, setDau] = useState<number>(300); // Daily active users
   const [avgTurnsPerUser, setAvgTurnsPerUser] = useState<number>(12); // Daily chat turns
@@ -64,126 +65,6 @@ export default function AdminModal({
   const [usdToKrwRate] = useState<number>(1380); // KRW exchange rate
 
   if (!isOpen) return null;
-
-  const handlePasswordSubmit = (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
-    const trimmed = passwordInput.trim();
-    const validPasswords = ['admin0691'];
-    
-    if (validPasswords.includes(trimmed)) {
-      setIsAuthenticated(true);
-      setPasswordError(null);
-      setPasswordInput('');
-    } else {
-      setPasswordError('비밀번호가 올바르지 않습니다. 다시 확인해주세요.');
-    }
-  };
-
-  const handleLogout = () => {
-    setIsAuthenticated(false);
-    setPasswordInput('');
-    setPasswordError(null);
-  };
-
-  // PASSWORD PROMPT VIEW (When not authenticated)
-  if (!isAuthenticated) {
-    return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-200">
-        <div className="bg-[#18181b] border border-neutral-700 rounded-xl shadow-2xl w-full max-w-md overflow-hidden text-left text-white">
-          
-          {/* Header */}
-          <div className="px-6 py-5 border-b border-neutral-800 flex items-center justify-between bg-neutral-900/60">
-            <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-400 flex items-center justify-center">
-                <Lock className="w-5 h-5" />
-              </div>
-              <div>
-                <h3 className="font-serif font-bold text-base text-white tracking-tight">
-                  관리자 전용 인증
-                </h3>
-                <p className="text-[11px] text-neutral-400">
-                  Talk Korean Admin Security Gateway
-                </p>
-              </div>
-            </div>
-            <button
-              onClick={onClose}
-              className="p-1.5 rounded-md text-neutral-400 hover:text-white hover:bg-neutral-800 transition-colors cursor-pointer"
-            >
-              <X className="w-5 h-5" />
-            </button>
-          </div>
-
-          {/* Form Body */}
-          <form onSubmit={handlePasswordSubmit} className="p-6 space-y-5">
-            <div className="space-y-1.5">
-              <label className="text-xs font-bold text-neutral-300 flex items-center justify-between">
-                <span>관리자 마스터 비밀번호</span>
-                <span className="text-[10px] text-amber-400 font-mono">Master Key Required</span>
-              </label>
-              <div className="relative">
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  placeholder="관리자 비밀번호를 입력하세요"
-                  value={passwordInput}
-                  onChange={(e) => {
-                    setPasswordInput(e.target.value);
-                    if (passwordError) setPasswordError(null);
-                  }}
-                  autoFocus
-                  className="w-full pl-3.5 pr-10 py-2.5 bg-neutral-900 border border-neutral-700 rounded-lg text-sm text-white placeholder:text-neutral-500 focus:outline-none focus:border-amber-400 focus:ring-1 focus:ring-amber-400/50 transition-all font-mono"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-white transition-colors"
-                >
-                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                </button>
-              </div>
-            </div>
-
-            {passwordError && (
-              <div className="p-3 rounded-lg bg-rose-950/60 border border-rose-600/50 text-rose-300 text-xs flex items-center space-x-2">
-                <AlertCircle className="w-4 h-4 shrink-0 text-rose-400" />
-                <span>{passwordError}</span>
-              </div>
-            )}
-
-            {/* Security notice */}
-            <div className="p-3 bg-neutral-900/80 border border-neutral-800 rounded-lg text-xs space-y-1 text-neutral-400">
-              <div className="flex items-center space-x-1.5 text-neutral-300 font-semibold text-[11px]">
-                <Shield className="w-3.5 h-3.5 text-amber-400" />
-                <span>보안 관리자 안내</span>
-              </div>
-              <p className="text-[11px] leading-relaxed text-neutral-400">
-                인가된 시스템 관리자만 접속할 수 있는 보안 영역입니다.
-              </p>
-            </div>
-
-            {/* Actions */}
-            <div className="pt-2 flex items-center justify-end space-x-2">
-              <button
-                type="button"
-                onClick={onClose}
-                className="px-4 py-2.5 rounded-lg text-neutral-400 hover:text-white text-xs font-semibold hover:bg-neutral-800 transition-colors cursor-pointer"
-              >
-                취소
-              </button>
-              <button
-                type="submit"
-                className="px-5 py-2.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-black font-bold text-xs flex items-center space-x-1.5 transition-all shadow-md cursor-pointer hover:shadow-amber-500/20"
-              >
-                <Unlock className="w-4 h-4" />
-                <span>인증 및 콘솔 열기</span>
-              </button>
-            </div>
-          </form>
-
-        </div>
-      </div>
-    );
-  }
 
   // Simulator Calculations
   // Gemini 3.7 Flash pricing: $0.10 / 1M input tokens, $0.40 / 1M output tokens
@@ -233,25 +114,17 @@ export default function AdminModal({
                 <span className="px-2 py-0.5 rounded text-[11px] font-mono font-bold bg-amber-100 text-amber-900 border border-amber-300">
                   ADMIN CONSOLE
                 </span>
-                <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
-                  인증됨 (Authenticated)
+                <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-neutral-100 text-neutral-700 border border-neutral-300">
+                  모니터링 모드 (Read-Only Monitor)
                 </span>
               </div>
               <p className="text-xs text-editorial-muted">
-                인프라 현황, 실시간 요금 단가표, 월간 운영비 명세 및 수익성 시뮬레이터
+                인프라 현황, 실시간 요금 단가표, 월간 운영비 명세 및 수익성 시뮬레이터 (민감 설정 변경 비활성화됨)
               </p>
             </div>
           </div>
           
           <div className="flex items-center space-x-2">
-            <button
-              onClick={handleLogout}
-              className="px-2.5 py-1.5 rounded-sm bg-neutral-100 hover:bg-neutral-200 text-neutral-700 text-xs font-bold transition-colors flex items-center space-x-1 cursor-pointer"
-              title="관리자 세션 잠금"
-            >
-              <Lock className="w-3.5 h-3.5" />
-              <span>콘솔 잠금</span>
-            </button>
             <button
               onClick={onClose}
               className="p-2 rounded-sm text-editorial-muted hover:text-editorial-text hover:bg-editorial-border/40 transition-colors"
@@ -1343,26 +1216,21 @@ export default function AdminModal({
                   </button>
                 </div>
 
-                {onResetApp && (
-                  <div className="pt-4 border-t border-editorial-border flex items-center justify-between">
-                    <div>
-                      <div className="text-xs font-bold text-rose-700">로컬 학습 데이터 초기화</div>
-                      <div className="text-[11px] text-editorial-muted">
-                        테스트 목적으로 모든 학습 기록과 크레딧을 초기 상태로 리셋합니다.
-                      </div>
+                <div className="pt-4 border-t border-editorial-border flex items-center justify-between">
+                  <div>
+                    <div className="text-xs font-bold text-neutral-500">로컬 학습 데이터 초기화 (비활성화됨)</div>
+                    <div className="text-[11px] text-editorial-muted">
+                      보안 정책에 따라 서버 사이드 관리자 인증 세션이 구현되기 전까지 데이터 초기화 기능이 비활성화되었습니다.
                     </div>
-                    <button
-                      onClick={() => {
-                        if (window.confirm('정말로 모든 로컬 학습 데이터와 크레딧을 초기화하시겠습니까?')) {
-                          onResetApp();
-                        }
-                      }}
-                      className="px-3 py-1.5 bg-rose-50 text-rose-700 border border-rose-200 rounded text-xs font-bold hover:bg-rose-100 transition-colors cursor-pointer"
-                    >
-                      데이터 초기화 (Reset)
-                    </button>
                   </div>
-                )}
+                  <button
+                    disabled
+                    className="px-3 py-1.5 bg-neutral-100 text-neutral-400 border border-neutral-200 rounded text-xs font-bold cursor-not-allowed"
+                    title="서버 사이드 관리자 인증 필요"
+                  >
+                    초기화 비활성화됨
+                  </button>
+                </div>
               </div>
             </div>
           )}

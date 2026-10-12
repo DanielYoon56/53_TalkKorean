@@ -5,34 +5,21 @@ import {
   BranchingScenario, 
   DialogueNode, 
   DialogueChoice, 
-  DialogueEnding 
+  DialogueEnding,
+  getNode3CRBreakdown
 } from '../../data/dialogueTrees';
 import { 
-  MessageSquare, Volume2, VolumeX, User, 
-  Send, Mic, MicOff, RotateCcw, CheckCircle2, 
+  Volume2, VolumeX, RotateCcw, 
   AlertCircle, ChevronRight, Sliders, MapPin, 
-  GitBranch, Compass, Trophy, ArrowRight,
-  Lightbulb, RefreshCw, Coins, PlusCircle,
-  Check, Sparkles, Loader2, Bot, ArrowLeft
+  Trophy, ArrowRight, Lightbulb, Coins, PlusCircle,
+  Check, Sparkles, ArrowLeft, Mic, MicOff,
+  BookOpen, Star, Award, Compass, HelpCircle
 } from 'lucide-react';
 
-interface LiveMessage {
-  id: string;
-  sender: 'ai' | 'user';
-  textKo: string;
-  romanized?: string;
-  textEn?: string;
-  feedbackKo?: string;
-  feedbackEn?: string;
-  suggestedReplies?: string[];
-  speakerRoleKo?: string;
-  speakerRoleEn?: string;
-  timestamp?: string;
-}
-
-interface HistoryTurn {
+export interface HistoryTurn {
   nodeId: string;
   speakerRoleKo: string;
+  speakerRoleEn: string;
   aiMessageKo: string;
   aiMessageRomanized: string;
   aiMessageEn: string;
@@ -40,268 +27,16 @@ interface HistoryTurn {
   selectedChoice?: DialogueChoice;
 }
 
-interface AiConversationMenuProps {
+export interface ScenarioConversationMenuProps {
   credits?: number;
   onSpendCredits?: (amount: number, description: string) => boolean;
   onOpenCreditModal?: () => void;
+  onAddXp?: (xp: number) => void;
 }
 
-type SubtitleMode = 'full' | 'ko-en' | 'ko-only';
-type ConversationMode = 'live' | 'tree';
+export type SubtitleMode = 'full' | 'ko-en' | 'ko-only';
 
 const CONVERSATION_COST = 3; // 3 Credits per session
-
-interface ScenarioOpening {
-  aiKorean: string;
-  aiRomanized: string;
-  aiEnglish: string;
-  roleKo: string;
-  roleEn: string;
-  suggestedReplies: string[];
-}
-
-const SCENARIO_OPENINGS: Record<string, ScenarioOpening> = {
-  taxi: {
-    aiKorean: "어서 오세요! 어디로 모실까요? 손님, 목적지를 말씀해 주세요.",
-    aiRomanized: "Eoseo oseyo! Eodiro mosilkkayo? Sonnim, mokjeokji-reul malsseum-hae juseyo.",
-    aiEnglish: "Welcome! Where can I take you today? Please tell me your destination.",
-    roleKo: "택시 기사님",
-    roleEn: "Seoul Taxi Driver",
-    suggestedReplies: [
-      "강남역 4번 출구로 가주세요. (To Gangnam Station Exit 4 please.)",
-      "서울역으로 가주세요. (Please take me to Seoul Station.)",
-      "조금 급한데 빠른 길로 가주실 수 있나요? (I am in a hurry, can you take a fast route?)"
-    ]
-  },
-  cafe: {
-    aiKorean: "어서오세요! 홍대 카페입니다. 어떤 음료로 주문하시겠어요?",
-    aiRomanized: "Eoseo-oseyo! Hongdae kape-imnida. Eotteon eumryo-ro jumun-hasigesseoyo?",
-    aiEnglish: "Welcome! This is Hongdae Cafe. What drink would you like to order?",
-    roleKo: "바리스타",
-    roleEn: "Hongdae Barista",
-    suggestedReplies: [
-      "따뜻한 아메리카노 한 잔 주세요. (One warm Americano please.)",
-      "시그니처 메뉴 추천해 주세요. (Please recommend your signature menu.)",
-      "디카페인 아이스 라떼 되나요? (Can I get a decaf iced latte?)"
-    ]
-  },
-  convenience: {
-    aiKorean: "어서오세요! GS25입니다. 필요한 물건 있으시면 말씀해 주세요!",
-    aiRomanized: "Eoseo-oseyo! GS25-imnida. Piryo-hasin mulgeon isseusimyeon malsseum-hae juseyo!",
-    aiEnglish: "Welcome! This is GS25. Let me know if you need anything!",
-    roleKo: "편의점 직원",
-    roleEn: "Convenience Store Staff",
-    suggestedReplies: [
-      "교통카드 충전할 수 있나요? (Can I recharge my transit card?)",
-      "종량제 봉투 하나 주세요. (Please give me one standard trash bag.)",
-      "이거 1+1 행사 상품 맞나요? (Is this a 1+1 promotion item?)"
-    ]
-  },
-  restaurant: {
-    aiKorean: "어서오세요! 몇 분이서 오셨나요? 편하신 자리에 앉으세요!",
-    aiRomanized: "Eoseo-oseyo! Myeot bun-iseo osyeonnayo? Pyeon-hasin jari-e anjeuseyo!",
-    aiEnglish: "Welcome! How many are in your party? Please take any comfortable seat!",
-    roleKo: "식당 직원",
-    roleEn: "Korean Restaurant Staff",
-    suggestedReplies: [
-      "두 명이에요. 삼겹살 2인분 먼저 주세요. (Two people. 2 servings of pork belly first please.)",
-      "여기서 제일 인기 있는 메뉴가 뭐예요? (What is the most popular menu here?)",
-      "물냉면 하나랑 된장찌개도 추가할게요. (I will also add one cold noodles and soybean stew.)"
-    ]
-  },
-  subway: {
-    aiKorean: "네, 역무실입니다. 무엇을 도와드릴까요?",
-    aiRomanized: "Ne, yeongmusil-imnida. Mueos-eul dowadeurilkkayo?",
-    aiEnglish: "Yes, station office. How can I help you?",
-    roleKo: "지하철 역무원",
-    roleEn: "Metro Station Staff",
-    suggestedReplies: [
-      "잠실역으로 가려면 몇 호선으로 갈아타야 하나요? (Which line should I transfer to for Jamsil?)",
-      "교통카드를 개찰구에 찍었는데 오류가 났어요. (I tapped my card at the turnstile and got an error.)",
-      "1번 출구로 나가려면 어디로 가야 하나요? (Which way should I go for Exit 1?)"
-    ]
-  },
-  pharmacy: {
-    aiKorean: "어서오세요! 어디가 불편하신가요?",
-    aiRomanized: "Eoseo-oseyo! Eodiga bulpyeon-hasingayo?",
-    aiEnglish: "Welcome! What symptoms are troubling you?",
-    roleKo: "약사님",
-    roleEn: "Pharmacist",
-    suggestedReplies: [
-      "머리가 아프고 열이 조금 나요. 진통제 있나요? (I have a headache and slight fever. Do you have painkillers?)",
-      "소화가 잘 안 돼서 소화제 좀 주세요. (I have indigestion, please give me digestive medicine.)",
-      "이 약은 식후에 먹어야 하나요? (Should this medicine be taken after meals?)"
-    ]
-  },
-  market: {
-    aiKorean: "어서와요 학생! 맛있는 떡볶이랑 순대 방금 만들었어, 먹고 갈래?",
-    aiRomanized: "Eoseowayo haksaeng! Masitneun tteokbokki-rang sundae banggeum mandeureosseo, meokgo gallae?",
-    aiEnglish: "Welcome! Just made fresh tteokbokki and sundae, want to eat here?",
-    roleKo: "시장 이모님",
-    roleEn: "Traditional Market Vendor",
-    suggestedReplies: [
-      "이모님, 떡볶이 1인분 포장해 주세요! (Auntie, please pack 1 serving of tteokbokki!)",
-      "순대랑 튀김도 섞어서 주실 수 있나요? (Can you mix sundae and fried snacks too?)",
-      "이거 많이 맵나요? (Is this very spicy?)"
-    ]
-  },
-  noraebang: {
-    aiKorean: "어서오세요! 코인노래방입니다. 몇 곡 부르시거나 시간제로 하실 건가요?",
-    aiRomanized: "Eoseo-oseyo! Koin noraebang-imnida. Myeot gok bureusigeona siganje-ro hasil geongayo?",
-    aiEnglish: "Welcome to Coin Karaoke! Are you singing by songs or by time?",
-    roleKo: "노래방 사장님",
-    roleEn: "Coin Karaoke Owner",
-    suggestedReplies: [
-      "코인으로 3곡 부를게요. (I will sing 3 songs with coin.)",
-      "1시간 시간제로 계산해 주세요. (Please charge for 1 hour by time.)",
-      "마이크 커버 두 개 주시겠어요? (Could you give us two mic covers?)"
-    ]
-  },
-  intro: {
-    aiKorean: "안녕! 만나서 반가워. 나는 민지야! 한국어 공부한 지 얼마나 됐어?",
-    aiRomanized: "Annyeong! Mannaseo bangawo. Naneun Minji-ya! Hangugeo gongbu-han ji eolmana dwaesseo?",
-    aiEnglish: "Hi! Nice to meet you. I'm Min-ji! How long have you been studying Korean?",
-    roleKo: "언어교환 친구 민지",
-    roleEn: "Language Exchange Friend Min-ji",
-    suggestedReplies: [
-      "안녕 민지야! 한국어 배운 지 6개월 정도 됐어. (Hi Min-ji! It's been about 6 months since I started.)",
-      "K-POP 좋아해서 독학으로 공부하고 있어. (I study by myself because I love K-POP.)",
-      "한국인 친구 사귀고 싶어서 모임에 나왔어! (I came to this meetup because I want to make Korean friends!)"
-    ]
-  },
-  friend: {
-    aiKorean: "안녕! 만나서 반가워. 나는 민지야! 한국어 공부한 지 얼마나 됐어?",
-    aiRomanized: "Annyeong! Mannaseo bangawo. Naneun Minji-ya! Hangugeo gongbu-han ji eolmana dwaesseo?",
-    aiEnglish: "Hi! Nice to meet you. I'm Min-ji! How long have you been studying Korean?",
-    roleKo: "언어교환 친구 민지",
-    roleEn: "Language Exchange Friend Min-ji",
-    suggestedReplies: [
-      "안녕 민지야! 한국어 배운 지 6개월 정도 됐어. (Hi Min-ji! It's been about 6 months since I started.)",
-      "K-POP 좋아해서 독학으로 공부하고 있어. (I study by myself because I love K-POP.)",
-      "한국인 친구 사귀고 싶어서 모임에 나왔어! (I came to this meetup because I want to make Korean friends!)"
-    ]
-  },
-  freetalk: {
-    aiKorean: "안녕하세요! 원어민 튜터 지우예요 😊 오늘 하루는 어떠셨나요? 한국어나 일상에 대해 편하게 이야기 나눠요!",
-    aiRomanized: "Annyeonghaseyo! Woneomin tyuteo Ji-u-yeyo. Oneul haru-neun eotteosyeonnayo? Hangugeo-na ilsang-e daehae pyeon-hage iyagi nanwoyo!",
-    aiEnglish: "Hello! I am native tutor Ji-woo 😊 How was your day? Feel free to chat about Korean or daily life!",
-    roleKo: "지우 튜터",
-    roleEn: "Native Tutor Ji-woo",
-    suggestedReplies: [
-      "오늘 기분 좋은 하루 보냈어요! (I had a great day today!)",
-      "한국 여행 갈 때 꼭 알아야 할 표현이 궁금해요. (I am curious about essential expressions when traveling in Korea.)",
-      "한국어 발음 잘하는 팁 좀 알려주세요! (Please give me tips on speaking Korean with good pronunciation!)"
-    ]
-  }
-};
-
-const ADDITIONAL_SCENARIOS = [
-  {
-    id: 'subway',
-    titleKo: '🚇 지하철 역무실 문의 & 환승',
-    titleEn: 'Seoul Metro Transit & Directions',
-    badge: 'Transit',
-    category: 'travel' as const,
-    difficulty: 'Intermediate' as any,
-    roleKo: '지하철 역무원',
-    roleEn: 'Seoul Metro Staff',
-    settingKo: '출구 위치, 환승 노선, 교통카드 오류 등을 역무원에게 문의해 보세요.',
-    settingEn: 'Ask for directions, exit numbers, and card tap issues at a busy Seoul station.',
-    image: '',
-    keyVocab: [
-      { ko: '갈아타다 (환승)', en: 'transfer lines', pronunciation: 'garatada (hwanseung)' },
-      { ko: '개찰구 오류', en: 'turnstile error', pronunciation: 'gaechalgu oryu' },
-      { ko: '몇 번 출구예요?', en: 'Which exit is it?', pronunciation: 'myeot beon chulgueyo?' }
-    ],
-    rootNodeId: 'subway_root',
-    nodes: {}
-  },
-  {
-    id: 'restaurant',
-    titleKo: '🍲 한국 전통 식당 주문 & 반찬 요청',
-    titleEn: 'Korean Restaurant Dining & Ordering',
-    badge: 'Dining',
-    category: 'food' as const,
-    difficulty: 'Beginner+' as any,
-    roleKo: '식당 직원',
-    roleEn: 'Restaurant Staff',
-    settingKo: '식당에서 자리를 잡고 인기 메뉴를 추천받거나 반찬을 추가로 요청해 보세요.',
-    settingEn: 'Order dishes, ask for recommendations, and request side-dish refills.',
-    image: '',
-    keyVocab: [
-      { ko: '추천 메뉴', en: 'recommended menu', pronunciation: 'chucheon menyu' },
-      { ko: '반찬 더 주세요', en: 'more side dishes please', pronunciation: 'banchan deo juseyo' },
-      { ko: '계산서 주세요', en: 'check please', pronunciation: 'gyesanseo juseyo' }
-    ],
-    rootNodeId: 'restaurant_root',
-    nodes: {}
-  },
-  {
-    id: 'pharmacy',
-    titleKo: '💊 약국에서 증상 설명 & 복약 상담',
-    titleEn: 'Pharmacy Health & Medication Advice',
-    badge: 'Health',
-    category: 'lifestyle' as const,
-    difficulty: 'Intermediate' as any,
-    roleKo: '약사님',
-    roleEn: 'Pharmacist',
-    settingKo: '두통, 감기 기운, 소화불량 등 증상을 설명하고 알맞은 약과 복용법을 상담해 보세요.',
-    settingEn: 'Describe your symptoms clearly and get proper medicine and dosage advice.',
-    image: '',
-    keyVocab: [
-      { ko: '두통 / 열나요', en: 'headache / fever', pronunciation: 'dutong / yeolnayo' },
-      { ko: '식후 30분', en: '30 mins after meal', pronunciation: 'sikhu samsipbun' },
-      { ko: '소화제 / 진통제', en: 'digestive pill / painkiller', pronunciation: 'sohwaje / jintongje' }
-    ],
-    rootNodeId: 'pharmacy_root',
-    nodes: {}
-  },
-  {
-    id: 'market',
-    titleKo: '🍎 광장시장 분식 주문 & 이모님 소통',
-    titleEn: 'Gwangjang Traditional Market Food',
-    badge: 'Street Food',
-    category: 'lifestyle' as const,
-    difficulty: 'Beginner+' as any,
-    roleKo: '시장 이모님',
-    roleEn: 'Market Vendor Auntie',
-    settingKo: '활기찬 전통시장에서 떡볶이, 순대, 빈대떡을 주문하고 친근하게 소통해 보세요.',
-    settingEn: 'Enjoy authentic Korean street food, interact warmly, and experience market culture.',
-    image: '',
-    keyVocab: [
-      { ko: '1인분 포장해 주세요', en: '1 serving takeout please', pronunciation: 'il-inbun pojanghae juseyo' },
-      { ko: '많이 맵나요?', en: 'Is it very spicy?', pronunciation: 'mani maemnayo?' },
-      { ko: '이모님 맛있어요!', en: 'Auntie, this is delicious!', pronunciation: 'imonim masisseoyo!' }
-    ],
-    rootNodeId: 'market_root',
-    nodes: {}
-  }
-];
-
-const ALL_SCENARIOS = [
-  ...BRANCHING_SCENARIOS,
-  ...ADDITIONAL_SCENARIOS,
-  {
-    id: 'freetalk',
-    titleKo: '💬 원어민 지우 튜터 1:1 자유 대화',
-    titleEn: '1:1 Free Talk with Ji-woo',
-    badge: '1:1 Free Talk',
-    category: 'social' as const,
-    difficulty: 'All Levels' as any,
-    roleKo: '지우 튜터',
-    roleEn: 'Native Tutor Ji-woo',
-    settingKo: '자유로운 주제로 원어민 튜터와 일상, 취미, 고민, 한국 문화를 편안하게 이야기해 보세요.',
-    settingEn: 'Chat freely about any topic, daily life, hobbies, and Korea with real-time AI.',
-    image: '',
-    keyVocab: [
-      { ko: '오늘 하루 어땠어요?', en: 'How was your day?', pronunciation: 'oneul haru eottaesseoyo?' },
-      { ko: '한국어 공부하는 중이에요', en: 'I am studying Korean', pronunciation: 'hangugeo gongbuhaneun jung-ieyo' },
-      { ko: '자연스러운 표현', en: 'Natural expression', pronunciation: 'jayeonseureoun pyohyeon' }
-    ],
-    rootNodeId: 'freetalk_root',
-    nodes: {}
-  }
-];
 
 function getSpeakerEmoji(scenarioId: string, roleKo: string = ''): string {
   if (scenarioId.includes('taxi') || roleKo.includes('기사')) return '🚕';
@@ -310,32 +45,25 @@ function getSpeakerEmoji(scenarioId: string, roleKo: string = ''): string {
   if (scenarioId.includes('convenience') || roleKo.includes('편의점')) return '🏪';
   if (scenarioId.includes('subway') || roleKo.includes('역무원')) return '🚇';
   if (scenarioId.includes('pharmacy') || roleKo.includes('약사')) return '💊';
-  if (scenarioId.includes('market') || roleKo.includes('상인')) return '🍎';
+  if (scenarioId.includes('market') || roleKo.includes('상인') || roleKo.includes('이모님')) return '🍎';
   if (scenarioId.includes('noraebang') || roleKo.includes('노래방')) return '🎤';
-  if (scenarioId.includes('friend') || roleKo.includes('친구') || roleKo.includes('민지')) return '🙋‍♀️';
-  if (scenarioId.includes('freetalk') || roleKo.includes('지우')) return '💬';
+  if (scenarioId.includes('bbq') || roleKo.includes('삼겹살') || roleKo.includes('고기')) return '🥩';
+  if (scenarioId.includes('intro') || roleKo.includes('친구') || roleKo.includes('민지') || roleKo.includes('민준')) return '🙋';
   return '💬';
 }
 
 export default function AiConversationMenu({
   credits = 0,
   onSpendCredits,
-  onOpenCreditModal
-}: AiConversationMenuProps = {}) {
-  // Scenario Selection Gate: Banner only appears AFTER a scenario is selected
+  onOpenCreditModal,
+  onAddXp
+}: ScenarioConversationMenuProps = {}) {
+  // Scenario Selection State
   const [isScenarioSelected, setIsScenarioSelected] = useState<boolean>(false);
-  
-  // Modes: 'live' (Real-time Gemini AI roleplay) vs 'tree' (Branching Tree)
-  const [conversationMode, setConversationMode] = useState<ConversationMode>('live');
   const [activeScenarioId, setActiveScenarioId] = useState<string>('taxi');
   const [activeCategory, setActiveCategory] = useState<'all' | 'travel' | 'food' | 'lifestyle' | 'social'>('all');
-  
-  // Live AI Conversation State
-  const [liveMessages, setLiveMessages] = useState<LiveMessage[]>([]);
-  const [isAiThinking, setIsAiThinking] = useState<boolean>(false);
-  const [liveSuggestedReplies, setLiveSuggestedReplies] = useState<string[]>([]);
-  
-  // Tree mode state
+
+  // Active Dialogue Tree State
   const [currentNodeId, setCurrentNodeId] = useState<string>('taxi_root');
   const [history, setHistory] = useState<HistoryTurn[]>([]);
   const [selectedEnding, setSelectedEnding] = useState<DialogueEnding | null>(null);
@@ -347,12 +75,13 @@ export default function AiConversationMenu({
   const [showSpeedPanel, setShowSpeedPanel] = useState<boolean>(false);
   const [isListening, setIsListening] = useState<boolean>(false);
   const [micSupported, setMicSupported] = useState<boolean>(true);
-  const [inputMessage, setInputMessage] = useState<string>('');
-  
-  // Track scenarios unlocked with credits (taxi, freetalk, intro unlocked for free trial)
+  const [voicePracticingChoiceId, setVoicePracticingChoiceId] = useState<string | null>(null);
+  const [voiceMatchResult, setVoiceMatchResult] = useState<string | null>(null);
+
+  // Track scenarios unlocked with credits (taxi, convenience, intro are free preview)
   const [unlockedScenarios, setUnlockedScenarios] = useState<Record<string, boolean>>({
     taxi: true,
-    freetalk: true,
+    convenience: true,
     intro: true
   });
   const [creditError, setCreditError] = useState<string | null>(null);
@@ -361,29 +90,18 @@ export default function AiConversationMenu({
   const recognitionRef = useRef<any>(null);
   const speakTimeoutRef = useRef<any>(null);
 
-  const currentScenario = 
-    ALL_SCENARIOS.find(s => s.id === activeScenarioId) || ALL_SCENARIOS[0];
-  const currentNode: DialogueNode = 
-    (currentScenario as any).nodes?.[currentNodeId] || (currentScenario as any).nodes?.[(currentScenario as any).rootNodeId] || {
-      id: 'default',
-      stepIndex: 1,
-      totalSteps: 1,
-      speakerRoleKo: currentScenario?.roleKo || 'AI Partner',
-      speakerRoleEn: currentScenario?.roleEn || 'AI Partner',
-      aiMessageKo: SCENARIO_OPENINGS[activeScenarioId]?.aiKorean || '안녕하세요!',
-      aiMessageRomanized: SCENARIO_OPENINGS[activeScenarioId]?.aiRomanized || '',
-      aiMessageEn: SCENARIO_OPENINGS[activeScenarioId]?.aiEnglish || '',
-      choices: []
-    };
-
-  const speakerEmoji = getSpeakerEmoji(activeScenarioId, currentScenario?.roleKo);
+  const currentScenario = BRANCHING_SCENARIOS.find(s => s.id === activeScenarioId) || BRANCHING_SCENARIOS[0];
+  const currentNode: DialogueNode = currentScenario.nodes[currentNodeId] || currentScenario.nodes[currentScenario.rootNodeId];
+  const lastTurn = history.length > 0 ? history[history.length - 1] : undefined;
+  const current3CR = getNode3CRBreakdown(currentScenario, currentNode, lastTurn?.selectedChoice);
+  const speakerEmoji = getSpeakerEmoji(activeScenarioId, currentScenario.roleKo);
 
   // Preload speech synthesis voices
   useEffect(() => {
     initSpeechVoices();
   }, []);
 
-  // Initialize Speech Recognition
+  // Initialize Speech Recognition for practice
   useEffect(() => {
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (!SpeechRecognition) {
@@ -395,52 +113,34 @@ export default function AiConversationMenu({
       const recognition = new SpeechRecognition();
       recognition.lang = 'ko-KR';
       recognition.continuous = false;
-      recognition.interimResults = true;
+      recognition.interimResults = false;
 
       recognition.onresult = (event: any) => {
-        let transcript = '';
-        for (let i = event.resultIndex; i < event.results.length; ++i) {
-          transcript += event.results[i][0].transcript;
-        }
-        setInputMessage(transcript);
+        const transcript = event.results[0]?.[0]?.transcript || '';
+        setVoiceMatchResult(`인식된 발음: "${transcript}"`);
+        setIsListening(false);
       };
 
       recognition.onend = () => {
         setIsListening(false);
       };
 
-      recognition.onerror = (event: any) => {
-        console.warn('Speech recognition warning:', event.error);
+      recognition.onerror = () => {
         setIsListening(false);
       };
 
       recognitionRef.current = recognition;
-    } catch (e) {
+    } catch {
       setMicSupported(false);
     }
   }, []);
 
-  // Handle scenario switch
-  useEffect(() => {
-    if (isScenarioSelected) {
-      startScenario(activeScenarioId);
-    }
-    return () => {
-      if (speakTimeoutRef.current) {
-        clearTimeout(speakTimeoutRef.current);
-      }
-      if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-        window.speechSynthesis.cancel();
-      }
-    };
-  }, [activeScenarioId, conversationMode, isScenarioSelected]);
-
-  // Auto scroll chat to bottom
+  // Auto scroll chat to bottom when dialogue progresses
   useEffect(() => {
     if (chatContainerRef.current) {
       chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
     }
-  }, [liveMessages, history, isAiThinking, currentNodeId, selectedEnding]);
+  }, [currentNodeId, history, selectedEnding]);
 
   const handleSpeakText = (text: string, role: 'ai' | 'user' = 'ai', forceImmediate: boolean = false) => {
     speakKoreanText(text, {
@@ -456,11 +156,11 @@ export default function AiConversationMenu({
     }
 
     if (onSpendCredits) {
-      const targetScenario = ALL_SCENARIOS.find(s => s.id === scenarioId);
-      const desc = `AI 실시간 회화 (${targetScenario?.titleKo || '시나리오'}) (-${CONVERSATION_COST} CR)`;
+      const targetScenario = BRANCHING_SCENARIOS.find(s => s.id === scenarioId);
+      const desc = `실전 시나리오 회화 (${targetScenario?.titleKo || '시나리오'}) (-${CONVERSATION_COST} CR)`;
       const success = onSpendCredits(CONVERSATION_COST, desc);
       if (!success) {
-        setCreditError(`회화 세션 시작을 위해 ${CONVERSATION_COST} 크레딧(CR)이 필요합니다. 크레딧을 충전해 주세요.`);
+        setCreditError(`시나리오 세션 시작을 위해 ${CONVERSATION_COST} 크레딧(CR)이 필요합니다. 크레딧을 충전해 주세요.`);
         return false;
       }
     } else if (credits < CONVERSATION_COST) {
@@ -474,6 +174,9 @@ export default function AiConversationMenu({
   };
 
   const handleSelectScenario = (scenarioId: string) => {
+    const ok = checkAndDeductCredits(scenarioId);
+    if (!ok) return;
+
     setActiveScenarioId(scenarioId);
     setIsScenarioSelected(true);
     startScenario(scenarioId);
@@ -488,263 +191,134 @@ export default function AiConversationMenu({
       window.speechSynthesis.cancel();
     }
 
-    const opening = SCENARIO_OPENINGS[scenarioId] || SCENARIO_OPENINGS.taxi;
-    const initialAiMsg: LiveMessage = {
-      id: `ai_init_${Date.now()}`,
-      sender: 'ai',
-      textKo: opening.aiKorean,
-      romanized: opening.aiRomanized,
-      textEn: opening.aiEnglish,
-      speakerRoleKo: opening.roleKo,
-      speakerRoleEn: opening.roleEn,
-      suggestedReplies: opening.suggestedReplies,
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-    };
-
-    setLiveMessages([initialAiMsg]);
-    setLiveSuggestedReplies(opening.suggestedReplies);
-    setIsAiThinking(false);
-
-    // Tree Mode reset
     const scenario = BRANCHING_SCENARIOS.find(s => s.id === scenarioId) || BRANCHING_SCENARIOS[0];
     setCurrentNodeId(scenario.rootNodeId);
-    setSelectedEnding(null);
-    setInputMessage('');
     setHistory([]);
+    setSelectedEnding(null);
+    setVoiceMatchResult(null);
+    setVoicePracticingChoiceId(null);
     setCreditError(null);
 
-    if (autoSpeak) {
+    const rootNode = scenario.nodes[scenario.rootNodeId];
+    if (autoSpeak && rootNode) {
       speakTimeoutRef.current = setTimeout(() => {
-        handleSpeakText(opening.aiKorean, 'ai', true);
-      }, 500);
+        handleSpeakText(rootNode.aiMessageKo, 'ai', true);
+      }, 400);
     }
   };
 
-  // Live AI Message Submission (Real API Call to /api/live-conversation)
-  const handleSendLiveMessage = async (userText: string) => {
-    const trimmed = userText.trim();
-    if (!trimmed || isAiThinking) return;
-
-    // Check credits
-    if (!unlockedScenarios[activeScenarioId]) {
-      const ok = checkAndDeductCredits(activeScenarioId);
-      if (!ok) return;
-    }
-
-    if (isListening && recognitionRef.current) {
-      recognitionRef.current.stop();
-      setIsListening(false);
-    }
-
-    const userMsg: LiveMessage = {
-      id: `user_${Date.now()}`,
-      sender: 'user',
-      textKo: trimmed,
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-    };
-
-    const nextHistory = [...liveMessages, userMsg];
-    setLiveMessages(nextHistory);
-    setInputMessage('');
-    setIsAiThinking(true);
-
-    if (autoSpeak) {
-      handleSpeakText(trimmed, 'user', true);
-    }
-
-    try {
-      const res = await fetch('/api/live-conversation', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          scenarioId: activeScenarioId,
-          userMessage: trimmed,
-          history: nextHistory.map(m => ({
-            sender: m.sender,
-            korean: m.textKo,
-            text: m.textKo
-          }))
-        })
-      });
-
-      if (!res.ok) {
-        throw new Error(`Server responded with ${res.status}`);
-      }
-
-      const data = await res.json();
-      const opening = SCENARIO_OPENINGS[activeScenarioId] || SCENARIO_OPENINGS.taxi;
-
-      const aiMsg: LiveMessage = {
-        id: `ai_${Date.now()}`,
-        sender: 'ai',
-        textKo: data.aiKorean || '네, 말씀 잘 들었습니다! 더 말씀해 주세요.',
-        romanized: data.aiRomanized,
-        textEn: data.aiEnglish,
-        feedbackKo: data.feedbackKo,
-        feedbackEn: data.feedbackEn,
-        suggestedReplies: data.suggestedReplies || [],
-        speakerRoleKo: opening.roleKo,
-        speakerRoleEn: opening.roleEn,
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-      };
-
-      setLiveMessages(prev => [...prev, aiMsg]);
-      if (data.suggestedReplies && data.suggestedReplies.length > 0) {
-        setLiveSuggestedReplies(data.suggestedReplies);
-      }
-
-      if (autoSpeak && aiMsg.textKo) {
-        setTimeout(() => {
-          handleSpeakText(aiMsg.textKo, 'ai', false);
-        }, 300);
-      }
-    } catch (err) {
-      console.warn('[Live Conversation Error]:', err);
-      const opening = SCENARIO_OPENINGS[activeScenarioId] || SCENARIO_OPENINGS.taxi;
-      const fallbackAiMsg: LiveMessage = {
-        id: `ai_fallback_${Date.now()}`,
-        sender: 'ai',
-        textKo: '네, 말씀 잘 들었습니다! 계속해서 편하게 한국어로 말씀해 보세요 😊',
-        romanized: 'Ne, malsseum jal deureosseumnida! Gyesokhaeseo pyeonhage hangugeoro malsseumhae boseyo.',
-        textEn: 'Yes, I heard you well! Please continue speaking comfortably in Korean 😊',
-        feedbackKo: '자연스러운 질문 표현이에요! 아주 훌륭합니다.',
-        feedbackEn: 'Clear and natural sentence structure! Great job.',
-        suggestedReplies: [
-          '네, 감사합니다! 계속 연습할게요. (Yes, thank you! I will keep practicing.)',
-          '다시 한번 천천히 말씀해 주세요. (Please say that again slowly.)',
-          '이 표현이 자연스러운가요? (Does this expression sound natural?)'
-        ],
-        speakerRoleKo: opening.roleKo,
-        speakerRoleEn: opening.roleEn,
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-      };
-
-      setLiveMessages(prev => [...prev, fallbackAiMsg]);
-      setLiveSuggestedReplies(fallbackAiMsg.suggestedReplies || []);
-    } finally {
-      setIsAiThinking(false);
-    }
-  };
-
-  // Tree Mode Choice Selection
   const handleSelectChoice = (choice: DialogueChoice) => {
-    if (!unlockedScenarios[activeScenarioId]) {
-      const success = checkAndDeductCredits(activeScenarioId);
-      if (!success) return;
+    if (speakTimeoutRef.current) {
+      clearTimeout(speakTimeoutRef.current);
+      speakTimeoutRef.current = null;
+    }
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
     }
 
-    if (isListening && recognitionRef.current) {
-      recognitionRef.current.stop();
-      setIsListening(false);
-    }
+    // 1. Add current turn to history
+    const turn: HistoryTurn = {
+      nodeId: currentNodeId,
+      speakerRoleKo: currentNode.speakerRoleKo,
+      speakerRoleEn: currentNode.speakerRoleEn,
+      aiMessageKo: currentNode.aiMessageKo,
+      aiMessageRomanized: currentNode.aiMessageRomanized,
+      aiMessageEn: currentNode.aiMessageEn,
+      sceneNoteKo: currentNode.sceneNoteKo || currentNode.sceneNote,
+      selectedChoice: choice
+    };
+    setHistory(prev => [...prev, turn]);
 
+    // 2. Play learner speech if autoSpeak
     if (autoSpeak) {
       handleSpeakText(choice.textKo, 'user', true);
     }
 
-    const updatedHistory: HistoryTurn[] = [
-      ...history,
-      {
-        nodeId: currentNode.id,
-        speakerRoleKo: currentNode.speakerRoleKo,
-        aiMessageKo: currentNode.aiMessageKo,
-        aiMessageRomanized: currentNode.aiMessageRomanized,
-        aiMessageEn: currentNode.aiMessageEn,
-        sceneNoteKo: currentNode.sceneNoteKo,
-        selectedChoice: choice
-      }
-    ];
-    setHistory(updatedHistory);
-
-    const nextNode = (currentScenario as any).nodes?.[choice.nextNodeId];
+    // 3. Move to next node
+    const nextNode = currentScenario.nodes[choice.nextNodeId];
     if (nextNode) {
       setCurrentNodeId(choice.nextNodeId);
-      setInputMessage('');
+      setVoiceMatchResult(null);
+      setVoicePracticingChoiceId(null);
 
+      // Check ending
       if (nextNode.isEnding && nextNode.endingSummary) {
         setSelectedEnding(nextNode.endingSummary);
-      } else {
-        setSelectedEnding(null);
+        if (onAddXp) {
+          onAddXp(nextNode.endingSummary.xpEarned || 50);
+        }
       }
 
-      if (autoSpeak && nextNode.aiMessageKo) {
-        setTimeout(() => {
+      // Auto play partner speech after learner finished
+      if (autoSpeak) {
+        speakTimeoutRef.current = setTimeout(() => {
           handleSpeakText(nextNode.aiMessageKo, 'ai', false);
         }, 800);
       }
     }
   };
 
-  // Form submit handler for both modes
-  const handleFormSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!inputMessage.trim() || isAiThinking) return;
-
-    if (conversationMode === 'live') {
-      handleSendLiveMessage(inputMessage);
-    } else {
-      const cleanInput = inputMessage.replace(/[\s.,?!]/g, '').toLowerCase();
-      const matched = currentNode.choices.find(c => {
-        const cleanChoice = c.textKo.replace(/[\s.,?!]/g, '').toLowerCase();
-        return cleanChoice.includes(cleanInput) || cleanInput.includes(cleanChoice);
-      });
-
-      if (matched) {
-        handleSelectChoice(matched);
-      } else {
-        setConversationMode('live');
-        handleSendLiveMessage(inputMessage);
-      }
+  const handleStepBack = () => {
+    if (history.length === 0) return;
+    const previousTurns = [...history];
+    const last = previousTurns.pop();
+    if (last) {
+      setHistory(previousTurns);
+      setCurrentNodeId(last.nodeId);
+      setSelectedEnding(null);
+      setVoiceMatchResult(null);
+      setVoicePracticingChoiceId(null);
     }
   };
 
-  const toggleMicListen = () => {
-    if (!recognitionRef.current) {
-      alert('마이크 음성 인식이 지원되지 않는 브라우저입니다. 직접 입력하거나 추천 답변을 클릭해 보세요!');
-      return;
-    }
-
-    if (isListening) {
+  const toggleMicForChoice = (choice: DialogueChoice) => {
+    if (!recognitionRef.current) return;
+    if (isListening && voicePracticingChoiceId === choice.id) {
       recognitionRef.current.stop();
       setIsListening(false);
+      setVoicePracticingChoiceId(null);
     } else {
-      setInputMessage('');
+      setVoicePracticingChoiceId(choice.id);
+      setVoiceMatchResult(null);
+      setIsListening(true);
       try {
         recognitionRef.current.start();
-        setIsListening(true);
-      } catch (e) {
+      } catch {
         setIsListening(false);
       }
     }
   };
 
-  // 1. SCENARIO SELECTION SCREEN (Shown BEFORE scenario is selected)
+  // 1. SCENARIO BROWSER VIEW (when no scenario is selected)
   if (!isScenarioSelected) {
     return (
-      <div className="space-y-6">
-        {/* Intro Banner */}
-        <div className="bg-[#1A1A1A] text-white rounded-xl p-5 sm:p-6 border border-neutral-800 space-y-4 shadow-sm">
+      <div className="space-y-6 animate-in fade-in duration-200">
+        {/* Billboard Hero Header */}
+        <div className="bg-[#1A1A1A] text-white rounded-xl p-5 sm:p-7 border border-neutral-800 space-y-4 shadow-sm">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="space-y-2">
               <div className="flex flex-wrap items-center gap-2">
                 <span className="px-2.5 py-0.5 rounded text-[11px] font-bold bg-amber-400/20 text-amber-300 border border-amber-400/30 flex items-center space-x-1">
-                  <Sparkles className="w-3 h-3 text-amber-400" />
-                  <span>AI Live Roleplay & Conversation</span>
+                  <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                  <span>실전 시나리오 인터랙티브 회화</span>
                 </span>
-                <span className="px-2.5 py-0.5 rounded text-[11px] font-bold bg-rose-500/20 text-rose-300 border border-rose-500/40 flex items-center space-x-1 font-mono">
-                  <Coins className="w-3 h-3 text-rose-400" />
-                  <span>{CONVERSATION_COST} CR / Session</span>
+                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-neutral-800 text-neutral-300 border border-neutral-700">
+                  10대 현지 상황 수록
+                </span>
+                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
+                  3CR 심층 성찰 학습
                 </span>
               </div>
+
               <h2 className="text-xl sm:text-2xl font-serif font-bold text-white tracking-tight">
-                시나리오를 선택해 주세요 (Choose a Scenario)
+                실전 시나리오 회화 (Interactive Scenario Dialogue)
               </h2>
-              <p className="text-xs sm:text-sm text-neutral-300">
-                원하시는 한국어 상황을 선택하시면 해당 상황의 상세 배너와 원어민 AI 실시간 대화창이 시작됩니다.
+              <p className="text-xs sm:text-sm text-neutral-300 leading-relaxed max-w-2xl font-sans">
+                택시 타기부터 편의점 행사, 감성 카페 주문, 고깃집 리필, 지하철 환승, 약국 증상 상담까지—검증된 10대 한국 실생활 시나리오에서 선택지마다 상대방의 반응과 뉘앙스를 배우는 인터랙티브 분기 회화입니다.
               </p>
             </div>
 
-            {/* User Credit Balance */}
+            {/* Credit status card */}
             <div className="bg-neutral-900 border border-neutral-700/80 rounded-lg p-3 sm:p-4 flex flex-col items-center justify-center shrink-0 min-w-[150px] shadow-xs">
               <span className="text-[10px] text-neutral-400 font-bold uppercase tracking-wider">
                 Available Credits
@@ -767,53 +341,25 @@ export default function AiConversationMenu({
             </div>
           </div>
 
-          {/* Conversation Mode Tabs */}
-          <div className="flex items-center space-x-2 pt-2 border-t border-neutral-800">
-            <button
-              onClick={() => setConversationMode('live')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center space-x-1.5 ${
-                conversationMode === 'live'
-                  ? 'bg-amber-400 text-black shadow-sm'
-                  : 'bg-neutral-900 text-neutral-400 hover:text-white border border-neutral-800'
-              }`}
-            >
-              <Bot className="w-3.5 h-3.5" />
-              <span>AI 실시간 대화 (Live AI)</span>
-              <span className="px-1.5 py-0.2 bg-red-600 text-white text-[9px] rounded font-bold">Recommended</span>
-            </button>
-
-            <button
-              onClick={() => setConversationMode('tree')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center space-x-1.5 ${
-                conversationMode === 'tree'
-                  ? 'bg-amber-400 text-black shadow-sm'
-                  : 'bg-neutral-900 text-neutral-400 hover:text-white border border-neutral-800'
-              }`}
-            >
-              <GitBranch className="w-3.5 h-3.5" />
-              <span>단계별 시나리오 트리 (Branching Tree)</span>
-            </button>
-          </div>
-
           {/* Category Filter Pills */}
-          <div className="pt-2 border-t border-neutral-800 flex flex-wrap items-center justify-between gap-2">
-            <span className="text-xs font-bold text-neutral-400">
-              카테고리 필터:
+          <div className="pt-3 border-t border-neutral-800 flex flex-wrap items-center justify-between gap-2">
+            <span className="text-xs font-bold text-neutral-400 font-mono">
+              카테고리 분류 (Category Filter):
             </span>
             <div className="flex flex-wrap gap-1.5">
               {[
-                { id: 'all', label: 'All (전체 11개)' },
-                { id: 'travel', label: '🚗 Travel & Transit (2)' },
-                { id: 'food', label: '🍲 Food & Cafe (3)' },
-                { id: 'lifestyle', label: '🏪 Daily Life (4)' },
-                { id: 'social', label: '🤝 Social & Friends (2)' }
+                { id: 'all', label: 'All (전체 10개)' },
+                { id: 'travel', label: '🚗 교통·이동 (2)' },
+                { id: 'food', label: '🍲 음식·카페 (4)' },
+                { id: 'lifestyle', label: '🏪 일상·생활 (3)' },
+                { id: 'social', label: '🤝 소셜·모임 (1)' }
               ].map((cat) => (
                 <button
                   key={cat.id}
                   onClick={() => setActiveCategory(cat.id as any)}
-                  className={`px-2.5 py-1 rounded text-xs font-bold transition-all cursor-pointer ${
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                     activeCategory === cat.id
-                      ? 'bg-amber-400 text-black font-extrabold'
+                      ? 'bg-amber-400 text-black font-extrabold shadow-xs'
                       : 'bg-neutral-900 text-neutral-400 hover:text-white border border-neutral-800'
                   }`}
                 >
@@ -824,143 +370,9 @@ export default function AiConversationMenu({
           </div>
         </div>
 
-        {/* Quick Launch: 1:1 Free Talk with Ji-woo Tutor */}
-        <div className="bg-gradient-to-r from-amber-600 via-amber-500 to-orange-500 rounded-xl p-4 sm:p-5 text-white shadow-md flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="space-y-1">
-            <div className="flex items-center space-x-2">
-              <span className="text-2xl">💬</span>
-              <h3 className="font-serif font-bold text-base sm:text-lg text-white">
-                원어민 AI 지우 튜터와 즉시 자유 회화 (Instant 1:1 Free Talk)
-              </h3>
-              <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-white/20 text-white font-mono">
-                무료 체험 가능
-              </span>
-            </div>
-            <p className="text-xs sm:text-sm text-white/90">
-              특정 상황 없이 일상, 한국 여행, 취미, 고민 등 자유로운 주제로 실시간 대화를 나누고 맞춤 교정을 받아보세요.
-            </p>
-          </div>
-          <button
-            onClick={() => handleSelectScenario('freetalk')}
-            className="px-5 py-2.5 bg-neutral-900 hover:bg-neutral-800 text-white font-bold rounded-lg text-xs sm:text-sm transition-all shadow-sm flex items-center justify-center space-x-2 shrink-0 cursor-pointer"
-          >
-            <Bot className="w-4 h-4 text-amber-400" />
-            <span>자유 대화 바로 시작</span>
-            <ArrowRight className="w-4 h-4 text-white" />
-          </button>
-        </div>
-
-        {/* 11 Scenario Cards Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {ALL_SCENARIOS
-            .filter((sc) => activeCategory === 'all' || sc.category === activeCategory)
-            .map((sc) => (
-              <div
-                key={sc.id}
-                onClick={() => handleSelectScenario(sc.id)}
-                className="bg-white border-2 border-neutral-200 hover:border-amber-400 rounded-xl p-5 cursor-pointer transition-all hover:shadow-lg flex flex-col justify-between space-y-4 group"
-              >
-                <div className="space-y-2.5">
-                  <div className="flex items-center justify-between">
-                    <span className="text-2xl p-2 bg-neutral-100 group-hover:bg-amber-100 rounded-lg transition-colors">
-                      {getSpeakerEmoji(sc.id, sc.roleKo)}
-                    </span>
-                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-neutral-100 text-neutral-700 border border-neutral-300">
-                      {sc.difficulty}
-                    </span>
-                  </div>
-
-                  <div>
-                    <h3 className="font-serif font-bold text-base text-neutral-900 group-hover:text-amber-900 transition-colors">
-                      {sc.titleKo}
-                    </h3>
-                    <p className="text-xs text-neutral-500">{sc.titleEn}</p>
-                  </div>
-
-                  <div className="text-xs text-neutral-600 bg-neutral-50 p-2.5 rounded-lg border border-neutral-200">
-                    <span className="font-bold text-neutral-800 block text-[11px] mb-0.5">상대방: {sc.roleKo}</span>
-                    <p className="text-[11px] text-neutral-500 line-clamp-2 leading-relaxed">{sc.settingKo}</p>
-                  </div>
-                </div>
-
-                <button
-                  type="button"
-                  className="w-full py-2.5 bg-neutral-900 group-hover:bg-amber-400 text-white group-hover:text-black font-bold text-xs rounded-lg transition-all flex items-center justify-center space-x-1.5 shadow-xs cursor-pointer"
-                >
-                  <span>이 시나리오 대화 시작하기</span>
-                  <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
-                </button>
-              </div>
-            ))}
-        </div>
-      </div>
-    );
-  }
-
-  // 2. ACTIVE CONVERSATION SCREEN (Banner appears AFTER scenario is selected)
-  return (
-    <div className="space-y-6">
-      {/* Top Banner (Shown AFTER selecting a scenario) */}
-      <div className="bg-[#1A1A1A] text-white rounded-xl p-5 sm:p-6 border border-neutral-800 space-y-4 shadow-sm">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="space-y-2">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="px-2.5 py-0.5 rounded text-[11px] font-bold bg-amber-400/20 text-amber-300 border border-amber-400/30 flex items-center space-x-1">
-                <Sparkles className="w-3 h-3 text-amber-400" />
-                <span>AI Live Roleplay & Conversation</span>
-              </span>
-              <span className="px-2.5 py-0.5 rounded text-[11px] font-bold bg-rose-500/20 text-rose-300 border border-rose-500/40 flex items-center space-x-1 font-mono">
-                <Coins className="w-3 h-3 text-rose-400" />
-                <span>{CONVERSATION_COST} CR / Session</span>
-              </span>
-              <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-neutral-800 text-neutral-300 border border-neutral-700">
-                Level: {currentScenario?.difficulty || 'All Levels'}
-              </span>
-            </div>
-            
-            <h2 className="text-xl sm:text-2xl font-serif font-bold text-white tracking-tight flex items-center space-x-2">
-              <span>{currentScenario?.titleEn || 'Korean Conversation'}</span>
-              <span className="text-sm sm:text-base font-normal text-neutral-400">({currentScenario?.titleKo})</span>
-            </h2>
-
-            <div className="flex flex-wrap items-center gap-2 text-xs sm:text-sm text-neutral-300 pt-0.5">
-              <span className="bg-neutral-800 text-amber-300 px-2.5 py-0.5 rounded font-bold border border-neutral-700">
-                {speakerEmoji} {currentScenario?.roleEn || currentScenario?.roleKo}
-              </span>
-              <span className="text-neutral-500">•</span>
-              <span className="text-neutral-400 text-xs">
-                원어민 AI와 실시간으로 묻고 답하며 피드백을 받는 쌍방향 회화
-              </span>
-            </div>
-          </div>
-
-          {/* Action Buttons & Credits */}
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-            <button
-              onClick={() => setIsScenarioSelected(false)}
-              className="px-3.5 py-2 bg-neutral-800 hover:bg-neutral-700 border border-neutral-600 text-white rounded-lg text-xs font-bold flex items-center justify-center space-x-1.5 transition-colors cursor-pointer"
-            >
-              <RotateCcw className="w-3.5 h-3.5 text-amber-400" />
-              <span>다른 시나리오 선택</span>
-            </button>
-
-            <div className="bg-neutral-900 border border-neutral-700/80 rounded-lg p-2.5 sm:p-3 flex items-center justify-between sm:flex-col sm:justify-center shrink-0 min-w-[130px] shadow-xs">
-              <span className="text-[10px] text-neutral-400 font-bold uppercase tracking-wider">
-                Available Credits
-              </span>
-              <div className="flex items-center space-x-1.5 my-0.5">
-                <Coins className="w-4 h-4 text-amber-400" />
-                <span className="text-base sm:text-lg font-bold font-mono text-amber-300">
-                  {credits} <span className="text-xs font-normal text-neutral-400">CR</span>
-                </span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Credit Insufficient Alert */}
+        {/* Credit error alert */}
         {creditError && (
-          <div className="p-3 bg-rose-950/80 border border-rose-600/60 rounded-lg text-rose-200 text-xs flex items-center justify-between gap-3 animate-in fade-in duration-200">
+          <div className="p-3 bg-rose-950/80 border border-rose-600/60 rounded-lg text-rose-200 text-xs flex items-center justify-between gap-3 animate-in fade-in">
             <div className="flex items-center space-x-2">
               <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
               <span>{creditError}</span>
@@ -970,57 +382,238 @@ export default function AiConversationMenu({
                 onClick={onOpenCreditModal}
                 className="px-3 py-1 bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs rounded transition-colors shrink-0 cursor-pointer"
               >
-                Get Credits
+                크레딧 충전하기
               </button>
             )}
           </div>
         )}
 
-        {/* Conversation Mode Tabs & Quick Scenario Switcher */}
-        <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-neutral-800">
-          <div className="flex items-center space-x-2">
-            <button
-              onClick={() => setConversationMode('live')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center space-x-1.5 ${
-                conversationMode === 'live'
-                  ? 'bg-amber-400 text-black shadow-sm'
-                  : 'bg-neutral-900 text-neutral-400 hover:text-white border border-neutral-800'
-              }`}
-            >
-              <Bot className="w-3.5 h-3.5" />
-              <span>AI 실시간 대화 (Live AI)</span>
-              <span className="px-1.5 py-0.2 bg-red-600 text-white text-[9px] rounded font-bold">Active</span>
-            </button>
+        {/* 10 Scenario Cards Grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {BRANCHING_SCENARIOS
+            .filter((sc) => activeCategory === 'all' || sc.category === activeCategory)
+            .map((sc) => {
+              const isFree = unlockedScenarios[sc.id];
+              return (
+                <div
+                  key={sc.id}
+                  onClick={() => handleSelectScenario(sc.id)}
+                  className="bg-white border-2 border-neutral-200 hover:border-amber-400 rounded-xl p-5 cursor-pointer transition-all hover:shadow-lg flex flex-col justify-between space-y-4 group text-left"
+                >
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-3xl p-2.5 bg-neutral-100 group-hover:bg-amber-100 rounded-xl transition-colors shrink-0">
+                        {getSpeakerEmoji(sc.id, sc.roleKo)}
+                      </span>
+                      <div className="flex items-center space-x-1.5">
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full font-mono ${
+                          isFree ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' : 'bg-amber-100 text-amber-900 border border-amber-300'
+                        }`}>
+                          {isFree ? '무료 체험' : `${CONVERSATION_COST} CR`}
+                        </span>
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-neutral-100 text-neutral-700 border border-neutral-300">
+                          {sc.difficulty}
+                        </span>
+                      </div>
+                    </div>
 
-            <button
-              onClick={() => setConversationMode('tree')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center space-x-1.5 ${
-                conversationMode === 'tree'
-                  ? 'bg-amber-400 text-black shadow-sm'
-                  : 'bg-neutral-900 text-neutral-400 hover:text-white border border-neutral-800'
-              }`}
-            >
-              <GitBranch className="w-3.5 h-3.5" />
-              <span>단계별 시나리오 트리 (Branching Tree)</span>
-            </button>
+                    <div>
+                      <h3 className="font-serif font-bold text-base text-neutral-900 group-hover:text-amber-900 transition-colors">
+                        {sc.titleKo}
+                      </h3>
+                      <p className="text-xs text-neutral-500 mt-0.5">{sc.titleEn}</p>
+                    </div>
+
+                    <div className="text-xs text-neutral-600 bg-neutral-50 p-2.5 rounded-lg border border-neutral-200 space-y-1">
+                      <span className="font-bold text-neutral-800 block text-[11px]">
+                        상대방: {sc.roleKo}
+                      </span>
+                      <p className="text-[11px] text-neutral-500 line-clamp-2 leading-relaxed">
+                        {sc.settingKo}
+                      </p>
+                    </div>
+
+                    {/* Key vocabulary chips */}
+                    <div className="space-y-1 pt-1">
+                      <span className="text-[10px] font-bold text-neutral-400 uppercase font-mono block">
+                        핵심 표현 미리보기:
+                      </span>
+                      <div className="flex flex-wrap gap-1">
+                        {sc.keyVocab.slice(0, 3).map((v, i) => (
+                          <span key={i} className="text-[10px] px-2 py-0.5 bg-neutral-100 text-neutral-700 rounded border border-neutral-200 font-serif">
+                            {v.ko}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    className="w-full py-2.5 bg-neutral-900 group-hover:bg-amber-500 text-white group-hover:text-black font-bold text-xs rounded-lg transition-all flex items-center justify-center space-x-1.5 shadow-xs cursor-pointer"
+                  >
+                    <span>이 시나리오 대화 시작하기</span>
+                    <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
+                  </button>
+                </div>
+              );
+            })}
+        </div>
+      </div>
+    );
+  }
+
+  // 2. ACTIVE SCENARIO CONVERSATION VIEW
+  return (
+    <div className="space-y-5 animate-in fade-in duration-200 text-left">
+      {/* Top Banner & Control Bar */}
+      <div className="bg-[#1A1A1A] text-white rounded-xl p-4 sm:p-5 border border-neutral-800 space-y-3.5 shadow-sm">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="space-y-1.5">
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                onClick={() => setIsScenarioSelected(false)}
+                className="px-2.5 py-1 bg-neutral-800 hover:bg-neutral-700 border border-neutral-600 text-white rounded-md text-xs font-bold flex items-center space-x-1 transition-colors cursor-pointer"
+              >
+                <ArrowLeft className="w-3.5 h-3.5 text-amber-400" />
+                <span>시나리오 목록으로</span>
+              </button>
+              <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-400/20 text-amber-300 border border-amber-400/30">
+                {currentScenario.badge}
+              </span>
+              <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-neutral-800 text-neutral-300 border border-neutral-700">
+                난이도: {currentScenario.difficulty}
+              </span>
+            </div>
+
+            <h2 className="text-lg sm:text-xl font-serif font-bold text-white tracking-tight flex items-center space-x-2">
+              <span>{currentScenario.titleKo}</span>
+              <span className="text-xs text-neutral-400 font-sans font-normal hidden md:inline">({currentScenario.titleEn})</span>
+            </h2>
           </div>
 
-          <div className="flex items-center space-x-1.5 overflow-x-auto py-1">
-            {ALL_SCENARIOS.map((sc) => (
+          {/* Quick Scenario Selector & Reset Button */}
+          <div className="flex items-center space-x-2">
+            <button
+              onClick={() => startScenario(activeScenarioId)}
+              className="px-3 py-1.5 bg-neutral-800 hover:bg-neutral-700 border border-neutral-600 text-neutral-200 rounded-lg text-xs font-bold flex items-center space-x-1.5 cursor-pointer transition-colors shadow-2xs"
+              title="대화를 처음부터 다시 시작합니다"
+            >
+              <RotateCcw className="w-3.5 h-3.5 text-amber-400" />
+              <span>새로 시작</span>
+            </button>
+
+            {history.length > 0 && !selectedEnding && (
               <button
-                key={sc.id}
-                onClick={() => setActiveScenarioId(sc.id)}
-                className={`px-2 py-1 rounded text-xs transition-all cursor-pointer shrink-0 ${
-                  sc.id === activeScenarioId
-                    ? 'bg-amber-400 text-black font-bold'
-                    : 'bg-neutral-900 text-neutral-400 hover:text-white border border-neutral-800'
-                }`}
-                title={sc.titleKo}
+                onClick={handleStepBack}
+                className="px-3 py-1.5 bg-neutral-800 hover:bg-neutral-700 border border-neutral-600 text-neutral-200 rounded-lg text-xs font-bold flex items-center space-x-1 cursor-pointer transition-colors"
+                title="한 단계 이전으로 되돌립니다"
               >
-                <span>{getSpeakerEmoji(sc.id, sc.roleKo)}</span>
-                <span className="hidden sm:inline ml-1">{sc.titleKo.replace(/^[^\s]+\s/, '').substring(0, 5)}...</span>
+                <span>← 이전 단계</span>
               </button>
-            ))}
+            )}
+          </div>
+        </div>
+
+        {/* Progress Step Bar */}
+        <div className="pt-2 border-t border-neutral-800 flex items-center justify-between text-xs text-neutral-400">
+          <div className="flex items-center space-x-2 font-mono">
+            <span>진행 단계:</span>
+            <span className="font-bold text-amber-300">
+              Step {currentNode.stepIndex} / {currentNode.totalSteps}
+            </span>
+            <div className="flex items-center space-x-1 ml-2">
+              {Array.from({ length: currentNode.totalSteps }).map((_, idx) => (
+                <span
+                  key={idx}
+                  className={`w-2.5 h-2.5 rounded-full transition-all ${
+                    idx + 1 === currentNode.stepIndex
+                      ? 'bg-amber-400 scale-125'
+                      : idx + 1 < currentNode.stepIndex
+                      ? 'bg-amber-600'
+                      : 'bg-neutral-700'
+                  }`}
+                />
+              ))}
+            </div>
+          </div>
+
+          {/* Subtitle & Audio Controls */}
+          <div className="flex items-center space-x-2">
+            {/* Subtitle toggle */}
+            <div className="flex items-center bg-neutral-900 rounded border border-neutral-700 p-0.5 text-[11px]">
+              <button
+                onClick={() => setSubtitleMode('full')}
+                className={`px-2 py-0.5 rounded transition-colors cursor-pointer ${
+                  subtitleMode === 'full' ? 'bg-amber-500 text-black font-bold' : 'text-neutral-400 hover:text-white'
+                }`}
+                title="한글 + 발음 + 영문 모두 표시"
+              >
+                전체
+              </button>
+              <button
+                onClick={() => setSubtitleMode('ko-en')}
+                className={`px-2 py-0.5 rounded transition-colors cursor-pointer ${
+                  subtitleMode === 'ko-en' ? 'bg-amber-500 text-black font-bold' : 'text-neutral-400 hover:text-white'
+                }`}
+                title="한글 + 영문만 표시"
+              >
+                한/영
+              </button>
+              <button
+                onClick={() => setSubtitleMode('ko-only')}
+                className={`px-2 py-0.5 rounded transition-colors cursor-pointer ${
+                  subtitleMode === 'ko-only' ? 'bg-amber-500 text-black font-bold' : 'text-neutral-400 hover:text-white'
+                }`}
+                title="한글만 표시"
+              >
+                한글만
+              </button>
+            </div>
+
+            {/* Auto speak toggle */}
+            <button
+              onClick={() => setAutoSpeak(!autoSpeak)}
+              className={`p-1.5 rounded border transition-colors cursor-pointer ${
+                autoSpeak ? 'bg-amber-500 text-black border-amber-400' : 'bg-neutral-800 text-neutral-400 border-neutral-700'
+              }`}
+              title={autoSpeak ? "자동 음성 발화 켜짐" : "자동 음성 발화 꺼짐"}
+            >
+              {autoSpeak ? <Volume2 className="w-3.5 h-3.5" /> : <VolumeX className="w-3.5 h-3.5" />}
+            </button>
+
+            {/* Speech rate toggle */}
+            <div className="relative">
+              <button
+                onClick={() => setShowSpeedPanel(!showSpeedPanel)}
+                className="px-2 py-1 bg-neutral-800 hover:bg-neutral-700 text-neutral-200 rounded border border-neutral-700 font-bold text-[11px] flex items-center space-x-1 cursor-pointer"
+              >
+                <Sliders className="w-3 h-3 text-amber-400" />
+                <span>{speechRate.toFixed(1)}x</span>
+              </button>
+
+              {showSpeedPanel && (
+                <div className="absolute right-0 top-full mt-1 w-32 bg-neutral-900 border border-neutral-700 rounded-lg shadow-xl p-2 z-30 space-y-1">
+                  <p className="text-[10px] font-bold text-neutral-300">음성 재생 속도</p>
+                  <div className="grid grid-cols-3 gap-1">
+                    {[0.8, 1.0, 1.2].map((rate) => (
+                      <button
+                        key={rate}
+                        onClick={() => {
+                          setSpeechRate(rate);
+                          setShowSpeedPanel(false);
+                        }}
+                        className={`py-1 text-center rounded text-xs font-bold cursor-pointer ${
+                          speechRate === rate ? 'bg-amber-500 text-black' : 'bg-neutral-800 text-neutral-300 hover:bg-neutral-700'
+                        }`}
+                      >
+                        {rate}x
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -1028,457 +621,396 @@ export default function AiConversationMenu({
       {/* Main Conversation Interactive Area */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         
-        {/* Left/Center Chat Screen (8 cols) */}
+        {/* Left: Dialogue Timeline & Choice Action Panel (8 cols) */}
         <div className="lg:col-span-8 flex flex-col space-y-4">
-          <div className="bg-white border-2 border-neutral-200 rounded-2xl shadow-sm overflow-hidden flex flex-col h-[650px]">
+          <div className="bg-white border-2 border-neutral-200 rounded-2xl shadow-sm overflow-hidden flex flex-col min-h-[580px]">
             
-            {/* Top Bar: Active Status, Subtitles & Voice Options */}
-            <div className="p-3.5 bg-neutral-100 border-b border-neutral-200 flex flex-wrap items-center justify-between gap-2 text-xs">
+            {/* Top Bar: Active Speaker Info */}
+            <div className="p-3 bg-neutral-100 border-b border-neutral-200 flex items-center justify-between text-xs">
               <div className="flex items-center space-x-2">
-                <div className="flex items-center space-x-1.5 bg-amber-100 text-amber-950 font-bold px-2.5 py-1 rounded-md border border-amber-300 shadow-2xs">
-                  <span>{speakerEmoji}</span>
-                  <span>상대방: {SCENARIO_OPENINGS[activeScenarioId]?.roleKo || currentScenario?.roleKo}</span>
-                </div>
-                {conversationMode === 'live' ? (
-                  <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 font-bold rounded text-[11px] flex items-center space-x-1 border border-emerald-300">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse"></span>
-                    <span>AI 실시간 대화 모드</span>
-                  </span>
-                ) : (
-                  <span className="px-2 py-0.5 bg-sky-100 text-sky-800 font-bold rounded text-[11px] border border-sky-300">
-                    시나리오 분기 트리 모드
-                  </span>
-                )}
+                <span className="text-lg">{speakerEmoji}</span>
+                <span className="font-bold text-neutral-800">
+                  대화 상대방: {currentScenario.roleKo}
+                </span>
+                <span className="text-[10px] text-neutral-500 font-sans hidden sm:inline">
+                  ({currentScenario.roleEn})
+                </span>
               </div>
-
-              {/* View options & TTS Speed */}
-              <div className="flex items-center space-x-2">
-                {/* Reset button */}
-                <button
-                  onClick={() => startScenario(activeScenarioId)}
-                  className="px-2 py-1 bg-white hover:bg-neutral-50 text-neutral-700 border border-neutral-300 rounded font-bold text-[11px] flex items-center space-x-1 cursor-pointer transition-colors shadow-2xs"
-                  title="대화 처음부터 다시 시작"
-                >
-                  <RotateCcw className="w-3 h-3 text-neutral-500" />
-                  <span>새로 시작</span>
-                </button>
-
-                {/* Subtitle mode */}
-                <div className="flex items-center bg-white rounded border border-neutral-300 p-0.5 text-[11px] shadow-2xs">
-                  <button
-                    onClick={() => setSubtitleMode('full')}
-                    className={`px-2 py-0.5 rounded transition-colors cursor-pointer ${
-                      subtitleMode === 'full' ? 'bg-neutral-900 text-white font-bold' : 'text-neutral-600 hover:text-neutral-900'
-                    }`}
-                    title="한글 + 발음 + 영어 번역 모두 표시"
-                  >
-                    전체
-                  </button>
-                  <button
-                    onClick={() => setSubtitleMode('ko-en')}
-                    className={`px-2 py-0.5 rounded transition-colors cursor-pointer ${
-                      subtitleMode === 'ko-en' ? 'bg-neutral-900 text-white font-bold' : 'text-neutral-600 hover:text-neutral-900'
-                    }`}
-                    title="한글 + 영어 번역만 표시"
-                  >
-                    한/영
-                  </button>
-                  <button
-                    onClick={() => setSubtitleMode('ko-only')}
-                    className={`px-2 py-0.5 rounded transition-colors cursor-pointer ${
-                      subtitleMode === 'ko-only' ? 'bg-neutral-900 text-white font-bold' : 'text-neutral-600 hover:text-neutral-900'
-                    }`}
-                    title="한글 전용"
-                  >
-                    한글만
-                  </button>
-                </div>
-
-                {/* Auto speak toggle */}
-                <button
-                  onClick={() => setAutoSpeak(!autoSpeak)}
-                  className={`p-1.5 rounded border transition-colors cursor-pointer ${
-                    autoSpeak 
-                      ? 'bg-amber-100 border-amber-300 text-amber-900 font-bold' 
-                      : 'bg-white border-neutral-300 text-neutral-400'
-                  }`}
-                  title={autoSpeak ? "자동 음성 발화 켜짐" : "자동 음성 발화 꺼짐"}
-                >
-                  {autoSpeak ? <Volume2 className="w-4 h-4 text-amber-700" /> : <VolumeX className="w-4 h-4" />}
-                </button>
-
-                {/* Speed toggle */}
-                <div className="relative">
-                  <button
-                    onClick={() => setShowSpeedPanel(!showSpeedPanel)}
-                    className="px-2.5 py-1 bg-white hover:bg-neutral-50 text-neutral-800 rounded border border-neutral-300 font-bold text-[11px] flex items-center space-x-1 cursor-pointer shadow-2xs"
-                  >
-                    <Sliders className="w-3 h-3 text-amber-700" />
-                    <span>{speechRate.toFixed(1)}x</span>
-                  </button>
-
-                  {showSpeedPanel && (
-                    <div className="absolute right-0 top-full mt-1 w-40 bg-white border border-neutral-300 rounded-lg shadow-xl p-2 z-30 space-y-1.5">
-                      <p className="text-[10px] font-bold text-neutral-900">음성 속도</p>
-                      <div className="grid grid-cols-3 gap-1">
-                        {[0.8, 1.0, 1.2].map((rate) => (
-                          <button
-                            key={rate}
-                            onClick={() => {
-                              setSpeechRate(rate);
-                              setShowSpeedPanel(false);
-                            }}
-                            className={`py-1 text-center rounded text-xs font-bold cursor-pointer ${
-                              speechRate === rate ? 'bg-amber-600 text-white' : 'bg-neutral-100 text-neutral-800 hover:bg-neutral-200'
-                            }`}
-                          >
-                            {rate}x
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
+              <span className="px-2 py-0.5 bg-amber-100 text-amber-900 rounded font-bold text-[11px] border border-amber-300">
+                실전 분기 시나리오 모드
+              </span>
             </div>
 
             {/* Chat Body & Timeline */}
             <div ref={chatContainerRef} className="flex-1 p-4 sm:p-5 overflow-y-auto space-y-4 bg-[#F9F8F6]">
-              {conversationMode === 'live' ? (
-                /* LIVE AI CONVERSATION TIMELINE */
-                liveMessages.map((msg, idx) => {
-                  const isAi = msg.sender === 'ai';
-
-                  if (isAi) {
-                    return (
-                      <div key={msg.id || idx} className="space-y-2">
-                        <div className="flex items-start space-x-3">
-                          <div className="w-9 h-9 rounded-full bg-amber-500 text-white flex items-center justify-center font-bold text-sm shrink-0 shadow-sm ring-1 ring-amber-300">
-                            {speakerEmoji}
-                          </div>
-                          <div className="flex-1 space-y-1.5 max-w-[90%]">
-                            <div className="flex items-center space-x-2">
-                              <span className="text-xs font-bold text-amber-950 bg-amber-100/90 px-2 py-0.5 rounded border border-amber-200">
-                                {msg.speakerRoleKo || 'AI Partner'}
-                              </span>
-                              <button
-                                onClick={() => handleSpeakText(msg.textKo, 'ai')}
-                                className="text-neutral-500 hover:text-amber-800 p-0.5 cursor-pointer flex items-center space-x-1 text-[11px]"
-                                title="다시 듣기"
-                              >
-                                <Volume2 className="w-3.5 h-3.5" />
-                                <span>다시 듣기</span>
-                              </button>
-                            </div>
-
-                            {/* Korean Speech Box */}
-                            <div className="bg-white p-4 rounded-2xl rounded-tl-none border-2 border-amber-200 shadow-xs space-y-1.5">
-                              <p className="text-base sm:text-lg font-serif font-bold text-neutral-900 leading-relaxed">
-                                {msg.textKo}
-                              </p>
-
-                              {subtitleMode === 'full' && msg.romanized && (
-                                <p className="text-xs font-mono text-amber-900/80 bg-amber-50/60 px-2.5 py-1 rounded border border-amber-200/50">
-                                  🗣️ 발음: {msg.romanized}
-                                </p>
-                              )}
-
-                              {subtitleMode !== 'ko-only' && msg.textEn && (
-                                <p className="text-xs text-neutral-600 pt-1 border-t border-neutral-100">
-                                  🇬🇧 번역: {msg.textEn}
-                                </p>
-                              )}
-                            </div>
-
-                            {/* Optional AI Feedback & Encouragement */}
-                            {msg.feedbackKo && (
-                              <div className="p-2.5 bg-emerald-50 border border-emerald-300 rounded-lg text-xs text-emerald-950 flex items-start space-x-1.5 shadow-2xs">
-                                <Sparkles className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5" />
-                                <div>
-                                  <strong className="font-bold text-emerald-900">AI 튜터 피드백:</strong> {msg.feedbackKo}
-                                  {subtitleMode !== 'ko-only' && msg.feedbackEn && (
-                                    <span className="block text-[11px] text-emerald-800 mt-0.5 italic">{msg.feedbackEn}</span>
-                                  )}
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  }
-
-                  // User message
-                  return (
-                    <div key={msg.id || idx} className="flex items-start justify-end space-x-3">
-                      <div className="flex-1 text-right space-y-1 max-w-[85%]">
-                        <div className="flex items-center justify-end space-x-2">
-                          <button
-                            onClick={() => handleSpeakText(msg.textKo, 'user')}
-                            className="text-neutral-400 hover:text-neutral-700 p-0.5 cursor-pointer flex items-center space-x-1 text-[11px]"
-                            title="내 발화 다시 듣기"
-                          >
-                            <Volume2 className="w-3.5 h-3.5" />
-                            <span>내 발화</span>
-                          </button>
-                          <span className="text-xs font-bold text-neutral-700 bg-neutral-200 px-2 py-0.5 rounded">
-                            화자 2 • 나
-                          </span>
-                        </div>
-                        <div className="bg-[#1f1e1b] text-white px-4 py-3 rounded-2xl rounded-tr-none shadow-sm inline-block text-left">
-                          <p className="text-sm sm:text-base font-serif font-medium leading-relaxed">
-                            {msg.textKo}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="w-9 h-9 rounded-full bg-neutral-800 text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-sm ring-1 ring-neutral-600">
-                        <User className="w-4 h-4" />
-                      </div>
+              {/* Previous History Turns */}
+              {history.map((turn, idx) => (
+                <div key={idx} className="space-y-3">
+                  {/* AI Partner message */}
+                  <div className="flex items-start space-x-3">
+                    <div className="w-8 h-8 rounded-full bg-neutral-800 text-white flex items-center justify-center font-bold text-sm shrink-0 shadow-2xs">
+                      {speakerEmoji}
                     </div>
-                  );
-                })
-              ) : (
-                /* TREE CONVERSATION TIMELINE */
-                <div className="space-y-4">
-                  {history.map((turn, idx) => (
-                    <div key={`turn-${idx}`} className="space-y-3 pb-3 border-b border-neutral-200/80">
-                      <div className="flex items-start space-x-3">
-                        <div className="w-9 h-9 rounded-full bg-amber-500 text-white flex items-center justify-center font-bold text-sm shrink-0 shadow-sm">
-                          {speakerEmoji}
-                        </div>
-                        <div className="flex-1 space-y-1">
-                          <span className="text-xs font-bold text-amber-900 bg-amber-100 px-2 py-0.5 rounded">
-                            {turn.speakerRoleKo}
-                          </span>
-                          <div className="bg-white px-4 py-3 rounded-xl border border-neutral-200 shadow-xs inline-block">
-                            <p className="text-sm sm:text-base font-serif font-bold text-neutral-900">
-                              {turn.aiMessageKo}
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-
-                      {turn.selectedChoice && (
-                        <div className="flex items-start justify-end space-x-3 pt-1">
-                          <div className="bg-[#242424] text-white px-4 py-2.5 rounded-xl text-left">
-                            <p className="text-sm font-serif font-medium">{turn.selectedChoice.textKo}</p>
-                          </div>
-                          <div className="w-8 h-8 rounded-full bg-neutral-800 text-white flex items-center justify-center font-bold text-xs shrink-0">
-                            <User className="w-3.5 h-3.5" />
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  ))}
-
-                  {/* Current Active Node */}
-                  <div className="space-y-2">
-                    <div className="flex items-start space-x-3">
-                      <div className="w-9 h-9 rounded-full bg-amber-500 text-white flex items-center justify-center font-bold text-sm shrink-0 shadow-md">
-                        {speakerEmoji}
-                      </div>
-                      <div className="flex-1 space-y-1.5">
-                        <span className="text-xs font-bold text-amber-900 bg-amber-200 px-2.5 py-0.5 rounded">
-                          {currentNode.speakerRoleKo}
+                    <div className="flex-1 space-y-1 max-w-[90%]">
+                      <div className="flex items-center space-x-2">
+                        <span className="text-[11px] font-bold text-neutral-600 bg-neutral-200 px-2 py-0.5 rounded">
+                          {turn.speakerRoleKo}
                         </span>
-                        <div className="bg-white p-4 rounded-xl border-2 border-amber-300 shadow-sm space-y-1.5">
-                          <p className="text-base sm:text-lg font-serif font-bold text-neutral-900">
-                            "{currentNode.aiMessageKo}"
+                        <button
+                          onClick={() => handleSpeakText(turn.aiMessageKo, 'ai')}
+                          className="text-neutral-400 hover:text-amber-800 p-0.5 cursor-pointer flex items-center space-x-1 text-[11px]"
+                          title="다시 듣기"
+                        >
+                          <Volume2 className="w-3.5 h-3.5" />
+                          <span>다시 듣기</span>
+                        </button>
+                      </div>
+                      <div className="bg-white p-3.5 rounded-2xl rounded-tl-none border border-neutral-200 shadow-2xs space-y-1">
+                        <p className="text-base font-serif font-bold text-neutral-800 leading-relaxed">
+                          {turn.aiMessageKo}
+                        </p>
+                        {subtitleMode === 'full' && turn.aiMessageRomanized && (
+                          <p className="text-xs font-mono text-neutral-500">
+                            {turn.aiMessageRomanized}
                           </p>
+                        )}
+                        {subtitleMode !== 'ko-only' && turn.aiMessageEn && (
+                          <p className="text-xs text-neutral-500 font-sans">
+                            {turn.aiMessageEn}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Learner chosen reply */}
+                  {turn.selectedChoice && (
+                    <div className="flex items-start justify-end space-x-2">
+                      <div className="space-y-1 max-w-[85%] text-right">
+                        <div className="flex items-center justify-end space-x-1.5">
+                          {turn.selectedChoice.intentTag && (
+                            <span className="text-[10px] font-bold px-2 py-0.5 bg-amber-100 text-amber-900 rounded border border-amber-300">
+                              {turn.selectedChoice.intentTag}
+                            </span>
+                          )}
+                          <span className="text-[11px] font-bold text-neutral-500">나의 선택</span>
+                        </div>
+                        <div className="bg-amber-500 text-neutral-950 p-3.5 rounded-2xl rounded-tr-none font-serif font-bold text-sm sm:text-base shadow-xs text-left">
+                          <p>{turn.selectedChoice.textKo}</p>
                           {subtitleMode !== 'ko-only' && (
-                            <p className="text-xs text-neutral-600 border-t border-neutral-100 pt-1">
-                              {currentNode.aiMessageEn}
+                            <p className="text-xs font-sans text-neutral-800 font-normal mt-1">
+                              {turn.selectedChoice.textEn}
                             </p>
                           )}
                         </div>
                       </div>
                     </div>
-
-                    {selectedEnding && (
-                      <div className="p-4 bg-amber-50 border-2 border-amber-300 rounded-xl space-y-2">
-                        <div className="flex items-center justify-between">
-                          <h4 className="font-bold text-neutral-900 flex items-center space-x-1.5">
-                            <Trophy className="w-4 h-4 text-amber-600" />
-                            <span>{selectedEnding.badgeKo}</span>
-                          </h4>
-                          <span className="text-xs font-mono font-bold bg-amber-400 text-black px-2 py-0.5 rounded">
-                            +{selectedEnding.xpEarned} XP
-                          </span>
-                        </div>
-                        <p className="text-xs text-neutral-700">{selectedEnding.feedbackKo}</p>
-                      </div>
-                    )}
-                  </div>
+                  )}
                 </div>
-              )}
+              ))}
 
-              {/* AI Typing Indicator */}
-              {isAiThinking && (
-                <div className="flex items-center space-x-3 animate-in fade-in duration-200">
-                  <div className="w-9 h-9 rounded-full bg-amber-500 text-white flex items-center justify-center font-bold text-sm shrink-0 shadow-sm">
+              {/* Current Active Node */}
+              <div className="space-y-3 pt-1">
+                {/* AI Partner current message */}
+                <div className="flex items-start space-x-3">
+                  <div className="w-9 h-9 rounded-full bg-amber-500 text-white flex items-center justify-center font-bold text-base shrink-0 shadow-xs ring-2 ring-amber-300">
                     {speakerEmoji}
                   </div>
-                  <div className="bg-white border border-amber-300 px-4 py-2.5 rounded-2xl rounded-tl-none shadow-2xs flex items-center space-x-2 text-xs font-medium text-neutral-600">
-                    <Loader2 className="w-4 h-4 animate-spin text-amber-600" />
-                    <span>원어민 AI가 자연스러운 한국어 답변을 생각하는 중입니다...</span>
+                  <div className="flex-1 space-y-1.5 max-w-[90%]">
+                    <div className="flex items-center space-x-2">
+                      <span className="text-xs font-bold text-amber-950 bg-amber-100 px-2 py-0.5 rounded border border-amber-300">
+                        {currentNode.speakerRoleKo}
+                      </span>
+                      <button
+                        onClick={() => handleSpeakText(currentNode.aiMessageKo, 'ai')}
+                        className="text-neutral-500 hover:text-amber-800 p-0.5 cursor-pointer flex items-center space-x-1 text-xs"
+                        title="다시 듣기"
+                      >
+                        <Volume2 className="w-4 h-4 text-amber-700" />
+                        <span className="font-bold">발음 듣기</span>
+                      </button>
+                    </div>
+
+                    <div className="bg-white p-4 rounded-2xl rounded-tl-none border-2 border-amber-200 shadow-xs space-y-1.5">
+                      <p className="text-lg sm:text-xl font-serif font-bold text-neutral-900 leading-relaxed">
+                        {currentNode.aiMessageKo}
+                      </p>
+                      {subtitleMode === 'full' && currentNode.aiMessageRomanized && (
+                        <p className="text-xs font-mono text-amber-900/80 bg-amber-50 px-2 py-1 rounded border border-amber-200/50">
+                          🗣️ 발음: {currentNode.aiMessageRomanized}
+                        </p>
+                      )}
+                      {subtitleMode !== 'ko-only' && currentNode.aiMessageEn && (
+                        <p className="text-xs sm:text-sm text-neutral-600 font-sans">
+                          💬 {currentNode.aiMessageEn}
+                        </p>
+                      )}
+                      {currentNode.sceneNoteKo && (
+                        <div className="pt-1.5 border-t border-neutral-100 text-[11px] text-neutral-500 flex items-center space-x-1">
+                          <Compass className="w-3.5 h-3.5 text-neutral-400 shrink-0" />
+                          <span>상황: {currentNode.sceneNoteKo}</span>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
-              )}
+              </div>
             </div>
 
-            {/* Bottom Interaction Area */}
-            <div className="p-4 bg-white border-t-2 border-neutral-200 space-y-3">
-              
-              {/* Dynamic Suggested Replies (Click to Send Immediately) */}
-              {conversationMode === 'live' && liveSuggestedReplies.length > 0 && !isAiThinking && (
-                <div className="space-y-1.5">
-                  <div className="flex items-center justify-between text-[11px] font-bold text-neutral-600">
-                    <span className="flex items-center space-x-1">
-                      <Sparkles className="w-3.5 h-3.5 text-amber-600" />
-                      <span>추천 답변 선택 (클릭하면 바로 전송됩니다):</span>
+            {/* Bottom Action Area: Branching Choices OR Ending Dashboard */}
+            <div className="p-4 sm:p-5 bg-white border-t border-neutral-200 space-y-3">
+              {!currentNode.isEnding ? (
+                /* INTERACTIVE CHOICES PANEL */
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-neutral-900 flex items-center space-x-1.5">
+                      <Sparkles className="w-4 h-4 text-amber-600" />
+                      <span>답변 선택지 ({currentNode.choices.length}가지 중 선택):</span>
+                    </span>
+                    <span className="text-[11px] text-neutral-500">
+                      원하는 뉘앙스와 전략의 답변을 클릭하세요
                     </span>
                   </div>
-                  <div className="flex flex-wrap gap-2">
-                    {liveSuggestedReplies.map((reply, idx) => (
+
+                  {voiceMatchResult && (
+                    <div className="p-2.5 bg-emerald-50 border border-emerald-300 rounded-lg text-xs font-bold text-emerald-900 flex items-center justify-between animate-in fade-in">
+                      <span>🎤 {voiceMatchResult}</span>
                       <button
-                        key={idx}
-                        onClick={() => handleSendLiveMessage(reply.replace(/\s*\([^)]*\)$/, ''))}
-                        className="px-3 py-1.5 bg-amber-50/90 hover:bg-amber-100 text-amber-950 border border-amber-300/80 rounded-lg text-xs font-serif font-medium text-left transition-all hover:scale-[1.01] cursor-pointer shadow-2xs flex items-center space-x-1"
+                        onClick={() => setVoiceMatchResult(null)}
+                        className="text-[10px] text-emerald-700 underline cursor-pointer"
                       >
-                        <ChevronRight className="w-3 h-3 text-amber-700 shrink-0" />
-                        <span>{reply}</span>
+                        닫기
                       </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Tree Mode Choices Grid */}
-              {conversationMode === 'tree' && !currentNode.isEnding && (
-                <div className="space-y-2">
-                  <span className="text-xs font-bold text-neutral-900">
-                    답변 선택지 ({currentNode.choices.length}가지):
-                  </span>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    {currentNode.choices.map((choice, index) => (
-                      <button
-                        key={choice.id || index}
-                        onClick={() => handleSelectChoice(choice)}
-                        className="p-2.5 bg-neutral-50 hover:bg-amber-50 border border-neutral-200 hover:border-amber-400 rounded-lg text-left transition-all cursor-pointer"
-                      >
-                        <div className="text-xs font-serif font-bold text-neutral-900">{choice.textKo}</div>
-                        <div className="text-[10px] text-neutral-500">{choice.textEn}</div>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Input Form & Microphone */}
-              <form onSubmit={handleFormSubmit} className="flex items-center space-x-2 pt-1">
-                {micSupported && (
-                  <button
-                    type="button"
-                    onClick={toggleMicListen}
-                    className={`px-3 py-2.5 rounded-lg text-xs font-bold flex items-center space-x-1.5 transition-all cursor-pointer shadow-2xs shrink-0 ${
-                      isListening 
-                        ? 'bg-rose-600 text-white animate-pulse' 
-                        : 'bg-neutral-100 hover:bg-neutral-200 text-neutral-800 border border-neutral-300'
-                    }`}
-                    title={isListening ? "음성 인식 중지" : "마이크로 말하기"}
-                  >
-                    {isListening ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4 text-amber-700" />}
-                    <span className="hidden sm:inline">{isListening ? '듣는 중...' : '마이크'}</span>
-                  </button>
-                )}
-
-                <input
-                  type="text"
-                  value={inputMessage}
-                  onChange={(e) => setInputMessage(e.target.value)}
-                  placeholder="한국어로 자유롭게 질문하거나 답변을 입력하세요 (예: 강남역 가주세요, 얼만가요?)"
-                  disabled={isAiThinking}
-                  className="flex-1 px-4 py-2.5 text-xs sm:text-sm bg-neutral-50 border border-neutral-300 rounded-lg focus:outline-none focus:border-amber-600 focus:bg-white font-serif transition-colors shadow-inner"
-                />
-
-                <button
-                  type="submit"
-                  disabled={!inputMessage.trim() || isAiThinking}
-                  className="px-5 py-2.5 bg-neutral-900 hover:bg-amber-600 disabled:opacity-40 text-white text-xs font-bold rounded-lg transition-all flex items-center space-x-1.5 cursor-pointer shadow-sm shrink-0"
-                >
-                  {isAiThinking ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      <span>생성 중</span>
-                    </>
-                  ) : (
-                    <>
-                      <Send className="w-4 h-4" />
-                      <span>전송</span>
-                    </>
+                    </div>
                   )}
-                </button>
-              </form>
+
+                  <div className="grid grid-cols-1 gap-2.5">
+                    {currentNode.choices.map((choice, index) => (
+                      <div
+                        key={choice.id || index}
+                        className="p-3.5 rounded-xl border-2 border-neutral-200 hover:border-amber-500 bg-neutral-50/80 hover:bg-amber-50/60 transition-all cursor-pointer group space-y-1.5"
+                        onClick={() => handleSelectChoice(choice)}
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="space-y-1 flex-1">
+                            <div className="flex items-center space-x-2">
+                              <span className="w-5 h-5 rounded-full bg-neutral-200 group-hover:bg-amber-500 group-hover:text-black text-neutral-700 text-xs font-bold flex items-center justify-center shrink-0">
+                                {index + 1}
+                              </span>
+                              <p className="font-serif font-bold text-sm sm:text-base text-neutral-900 group-hover:text-amber-950">
+                                {choice.textKo}
+                              </p>
+                            </div>
+                            {subtitleMode === 'full' && (
+                              <p className="text-[11px] font-mono text-neutral-500 pl-7">
+                                {choice.romanized}
+                              </p>
+                            )}
+                            {subtitleMode !== 'ko-only' && (
+                              <p className="text-xs text-neutral-600 pl-7">
+                                {choice.textEn}
+                              </p>
+                            )}
+                          </div>
+
+                          <div className="flex items-center space-x-1.5 shrink-0">
+                            {/* Practice Speak Button */}
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleSpeakText(choice.textKo, 'user', true);
+                              }}
+                              className="p-1.5 rounded-md hover:bg-white text-neutral-500 hover:text-amber-700 cursor-pointer"
+                              title="선택지 발음 먼저 들어보기"
+                            >
+                              <Volume2 className="w-4 h-4" />
+                            </button>
+
+                            {/* Mic practice button */}
+                            {micSupported && (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  toggleMicForChoice(choice);
+                                }}
+                                className={`p-1.5 rounded-md text-xs cursor-pointer ${
+                                  isListening && voicePracticingChoiceId === choice.id
+                                    ? 'bg-rose-600 text-white animate-pulse'
+                                    : 'hover:bg-white text-neutral-500 hover:text-amber-700'
+                                }`}
+                                title="이 문장 마이크로 직접 소리 내어 말해보기"
+                              >
+                                {isListening && voicePracticingChoiceId === choice.id ? (
+                                  <MicOff className="w-4 h-4" />
+                                ) : (
+                                  <Mic className="w-4 h-4" />
+                                )}
+                              </button>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Nuance & Strategy Tip Badge */}
+                        {choice.nuanceTip && (
+                          <div className="ml-7 pt-1 border-t border-neutral-200/60 text-[11px] text-amber-950 font-sans flex items-center space-x-1.5">
+                            <Lightbulb className="w-3 h-3 text-amber-600 shrink-0" />
+                            <span className="font-medium">{choice.nuanceTip}</span>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                /* ENDING SUMMARY DASHBOARD */
+                <div className="bg-gradient-to-br from-amber-50 to-orange-50 border-2 border-amber-300 rounded-xl p-5 space-y-4">
+                  <div className="flex items-start justify-between gap-3 border-b border-amber-200 pb-3">
+                    <div className="space-y-1">
+                      <div className="flex items-center space-x-2">
+                        <Trophy className="w-5 h-5 text-amber-600 shrink-0" />
+                        <h3 className="font-serif font-bold text-base sm:text-lg text-amber-950">
+                          {selectedEnding?.badgeKo || '🎉 시나리오 완료!'}
+                        </h3>
+                      </div>
+                      <p className="text-xs text-neutral-600">
+                        {selectedEnding?.feedbackKo || '현지 상황에 꼭 맞는 모범적인 한국어 회화를 완성하셨습니다.'}
+                      </p>
+                    </div>
+
+                    <div className="px-3 py-1.5 bg-amber-400 text-neutral-950 rounded-lg text-xs font-bold font-mono shrink-0 shadow-2xs flex items-center space-x-1">
+                      <Award className="w-4 h-4" />
+                      <span>+{selectedEnding?.xpEarned || 50} XP</span>
+                    </div>
+                  </div>
+
+                  {/* Key Learning Points */}
+                  {selectedEnding?.keyPoints && selectedEnding.keyPoints.length > 0 && (
+                    <div className="space-y-1.5">
+                      <span className="text-xs font-bold text-amber-950 flex items-center space-x-1">
+                        <Check className="w-4 h-4 text-emerald-600" />
+                        <span>이번 시나리오 핵심 학습 포인트:</span>
+                      </span>
+                      <ul className="text-xs text-neutral-700 space-y-1 list-disc list-inside bg-white/80 p-3 rounded-lg border border-amber-200">
+                        {selectedEnding.keyPoints.map((pt, i) => (
+                          <li key={i} className="leading-relaxed">{pt}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  {/* Grammar Notes */}
+                  {selectedEnding?.grammarNotes && selectedEnding.grammarNotes.length > 0 && (
+                    <div className="space-y-1.5">
+                      <span className="text-xs font-bold text-amber-950 flex items-center space-x-1">
+                        <BookOpen className="w-4 h-4 text-amber-700" />
+                        <span>핵심 문법 및 어휘 정리:</span>
+                      </span>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        {selectedEnding.grammarNotes.map((gn, i) => (
+                          <div key={i} className="p-2.5 bg-white rounded-lg border border-amber-200 text-xs space-y-0.5">
+                            <span className="font-serif font-bold text-neutral-900 block">{gn.title}</span>
+                            <p className="text-[11px] text-neutral-600 leading-relaxed">{gn.desc}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Replay and Switch Buttons */}
+                  <div className="flex flex-wrap items-center justify-end gap-2 pt-2 border-t border-amber-200">
+                    <button
+                      type="button"
+                      onClick={() => startScenario(activeScenarioId)}
+                      className="px-4 py-2 bg-white hover:bg-neutral-50 text-neutral-800 border border-neutral-300 rounded-lg text-xs font-bold flex items-center space-x-1.5 cursor-pointer shadow-2xs"
+                    >
+                      <RotateCcw className="w-3.5 h-3.5 text-amber-600" />
+                      <span>다른 선택지로 다시 도전하기</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setIsScenarioSelected(false)}
+                      className="px-5 py-2 bg-neutral-900 hover:bg-amber-600 text-white text-xs font-bold rounded-lg transition-all flex items-center space-x-1.5 cursor-pointer shadow-xs"
+                    >
+                      <span>다른 시나리오 선택</span>
+                      <ArrowRight className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
 
-        {/* Right Column: Scenario Context & Info (4 cols) */}
+        {/* Right Column: 3CR Framework & Vocabulary Panel (4 cols) */}
         <div className="lg:col-span-4 space-y-4">
           
-          {/* Scenario Overview Card */}
+          {/* 3CR Learning Breakdown Card */}
           <div className="bg-white border-2 border-neutral-200 rounded-xl p-4 shadow-sm space-y-3">
             <div className="flex items-center justify-between border-b border-neutral-200 pb-2.5">
               <span className="text-xs font-bold text-neutral-900 flex items-center space-x-1.5">
-                <MapPin className="w-4 h-4 text-amber-700" />
-                <span>시나리오 맥락 및 역할</span>
+                <Compass className="w-4 h-4 text-amber-600" />
+                <span>3CR 단계별 실전 분석</span>
               </span>
-              <span className="text-[10px] px-2 py-0.5 bg-amber-100 text-amber-800 rounded font-bold">
-                {currentScenario?.badge || 'Roleplay'}
+              <span className="text-[10px] px-2 py-0.5 bg-neutral-100 text-neutral-700 rounded font-bold font-mono">
+                Challenge & Reflection
               </span>
             </div>
 
-            <div className="space-y-2.5 text-xs">
-              <div>
-                <strong className="text-neutral-500 block text-[10px] uppercase font-mono">시나리오 제목</strong>
-                <p className="text-sm font-serif font-bold text-neutral-900">{currentScenario?.titleKo}</p>
-                <p className="text-xs text-neutral-500">{currentScenario?.titleEn}</p>
+            <div className="space-y-3 text-xs">
+              {/* Challenge */}
+              <div className="p-3 bg-amber-50/70 rounded-lg border border-amber-200 space-y-1">
+                <strong className="text-[11px] font-bold text-amber-950 uppercase font-mono flex items-center space-x-1">
+                  <span>🎯 현재 도전 과제 (Challenge)</span>
+                </strong>
+                <p className="font-serif font-bold text-neutral-900 leading-snug">
+                  {current3CR.challenge.goalKo}
+                </p>
+                <p className="text-[11px] text-neutral-600 font-sans">
+                  {current3CR.challenge.goalEn}
+                </p>
               </div>
 
-              <div>
-                <strong className="text-neutral-500 block text-[10px] uppercase font-mono">참여 인물</strong>
-                <p className="font-bold text-neutral-800">{currentScenario?.roleKo || 'AI 원어민 상대방'}</p>
-                <p className="text-[11px] text-neutral-500">{currentScenario?.roleEn}</p>
-              </div>
-
-              <div>
-                <strong className="text-neutral-500 block text-[10px] uppercase font-mono">상황 설정 (Setting)</strong>
-                <p className="text-neutral-700 leading-relaxed">{currentScenario?.settingKo || '한국 현지에서 자연스럽게 대화를 나눠보세요.'}</p>
+              {/* Reflection */}
+              <div className="p-3 bg-neutral-50 rounded-lg border border-neutral-200 space-y-1.5">
+                <strong className="text-[11px] font-bold text-neutral-700 uppercase font-mono flex items-center space-x-1">
+                  <span>💡 뉘앙스 & 문화 에티켓 (Reflection)</span>
+                </strong>
+                <p className="text-neutral-800 leading-relaxed font-sans text-xs">
+                  {current3CR.reflection.culturalEtiquetteKo}
+                </p>
+                {current3CR.reflection.grammarPatternKo && (
+                  <div className="pt-1.5 border-t border-neutral-200 text-[11px] text-amber-900">
+                    <strong>문법 패턴:</strong> {current3CR.reflection.grammarPatternKo}
+                  </div>
+                )}
               </div>
             </div>
           </div>
 
           {/* Useful Key Vocabulary for Scenario */}
-          {currentScenario?.keyVocab && currentScenario.keyVocab.length > 0 && (
+          {currentScenario.keyVocab && currentScenario.keyVocab.length > 0 && (
             <div className="bg-white border-2 border-neutral-200 rounded-xl p-4 shadow-sm space-y-2.5">
               <div className="flex items-center justify-between border-b border-neutral-200 pb-2">
                 <span className="text-xs font-bold text-neutral-900 flex items-center space-x-1.5">
                   <Lightbulb className="w-4 h-4 text-amber-600" />
-                  <span>이 상황 필수 표현</span>
+                  <span>이 상황 필수 표현 (Key Vocab)</span>
                 </span>
-                <span className="text-[10px] text-neutral-400 font-mono">Vocab</span>
+                <span className="text-[10px] text-neutral-400 font-mono">Audio</span>
               </div>
 
               <div className="space-y-2">
                 {currentScenario.keyVocab.map((v, i) => (
-                  <div key={i} className="p-2 bg-neutral-50 rounded border border-neutral-200 text-xs flex items-center justify-between">
+                  <div key={i} className="p-2.5 bg-neutral-50 rounded-lg border border-neutral-200 text-xs flex items-center justify-between">
                     <div>
                       <span className="font-serif font-bold text-neutral-900 block">{v.ko}</span>
                       <span className="text-[10px] text-neutral-500">{v.en}</span>
                     </div>
                     <button
                       onClick={() => handleSpeakText(v.ko, 'ai')}
-                      className="p-1 text-neutral-400 hover:text-amber-800 cursor-pointer"
+                      className="p-1.5 text-neutral-400 hover:text-amber-800 cursor-pointer"
                       title="발음 듣기"
                     >
                       <Volume2 className="w-3.5 h-3.5" />
@@ -1489,18 +1021,15 @@ export default function AiConversationMenu({
             </div>
           )}
 
-          {/* AI Conversation Tips */}
-          <div className="bg-gradient-to-br from-amber-50 to-orange-50/50 border border-amber-200 rounded-xl p-4 space-y-2 text-xs">
-            <h4 className="font-bold text-amber-950 flex items-center space-x-1.5">
-              <Sparkles className="w-4 h-4 text-amber-700" />
-              <span>실전 회화 팁 (Pro-Tips)</span>
-            </h4>
-            <ul className="text-neutral-700 space-y-1.5 list-disc list-inside leading-relaxed text-[11px]">
-              <li>원어민 AI에게 원하는 질문이나 요구사항을 자유롭게 말씀해 보세요.</li>
-              <li>음성 마이크 버튼을 눌러 실시간 발음으로 직접 말해보세요.</li>
-              <li>막힐 때는 AI가 제공하는 <strong>추천 답변 칩</strong>을 클릭하여 매끄럽게 대화를 이어갈 수 있습니다.</li>
-              <li>상단 <strong>스피커</strong> 버튼으로 원어민 발음을 언제든 다시 들을 수 있습니다.</li>
-            </ul>
+          {/* Scenario Context Setting */}
+          <div className="bg-white border-2 border-neutral-200 rounded-xl p-4 shadow-sm space-y-2.5 text-xs">
+            <span className="font-bold text-neutral-900 flex items-center space-x-1.5">
+              <MapPin className="w-4 h-4 text-amber-700" />
+              <span>상황 및 장소 설정 (Setting)</span>
+            </span>
+            <p className="text-neutral-600 leading-relaxed text-[11px]">
+              {currentScenario.settingKo}
+            </p>
           </div>
         </div>
       </div>

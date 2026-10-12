@@ -125,30 +125,55 @@ export default function App() {
     const orderId = params.get('orderId');
     const amount = params.get('amount');
     const planId = params.get('planId');
-    const creditsStr = params.get('credits');
     const method = params.get('method') || '토스페이먼츠';
 
-    if (payment === 'success' && paymentKey && orderId && amount) {
-      // Server-side confirmation call
+    if (payment === 'success') {
+      if (!paymentKey || !orderId || !amount) {
+        console.error('[Payment Error] Missing required callback parameters (paymentKey, orderId, or amount). No credits granted.');
+        window.history.replaceState({}, document.title, window.location.pathname);
+        return;
+      }
+
+      // Mandatory server-side confirmation call
       fetch('/api/payments/confirm', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ paymentKey, orderId, amount: Number(amount), planId }),
       })
-        .then((res) => res.json())
+        .then(async (res) => {
+          const data = await res.json().catch(() => null);
+          if (!res.ok || !data || !data.success) {
+            const errorMsg = data?.message || `서버 승인 확인 실패 (HTTP ${res.status})`;
+            throw new Error(errorMsg);
+          }
+          return data;
+        })
         .then((data) => {
-          const credits = creditsStr ? parseInt(creditsStr, 10) : 165;
-          const desc = `[${method}] 결제 승인 완료 (+${credits} CR) [${orderId}]`;
-          handleAddCredits(credits, desc);
+          // Strictly use server-verified credits; do not trust client query params
+          const verifiedCredits = typeof data.verifiedCredits === 'number' && data.verifiedCredits > 0
+            ? data.verifiedCredits
+            : null;
+
+          if (!verifiedCredits) {
+            console.error('[Payment Error] Server did not authorize valid credits. No credits granted.', data);
+            return;
+          }
+
+          const desc = `[${method}] 결제 승인 완료 (+${verifiedCredits} CR) [${orderId}]`;
+          handleAddCredits(verifiedCredits, desc);
           setIsCreditModalOpen(true);
         })
         .catch((err) => {
-          console.error('[Toss Payments Confirm Callback Error]', err);
+          console.error('[Toss Payments Confirm Callback Error - Credit Grant Aborted]', err);
+          // Do NOT grant any credits on failure
         })
         .finally(() => {
           window.history.replaceState({}, document.title, window.location.pathname);
         });
     } else if (payment === 'fail') {
+      const code = params.get('code');
+      const message = params.get('message');
+      console.warn('[Payment Canceled/Failed]', { code, message });
       window.history.replaceState({}, document.title, window.location.pathname);
     }
   }, []);

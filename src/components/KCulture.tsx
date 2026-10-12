@@ -2,9 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { 
   Utensils, Shirt, Home as HomeIcon, BookOpen, Music, 
   Gamepad2, Palette, Joystick, Sparkles, ChevronRight, 
-  MessageSquare, ExternalLink 
+  MessageSquare, ExternalLink, Quote, ScrollText, Check
 } from 'lucide-react';
-import { K_CULTURE_ITEMS, KCultureCategory, CultureItem } from '../data/kCultureData';
+import { K_CULTURE_ITEMS, KCultureCategory, CultureItem, getGenreEnglish, getSubgenreEnglish } from '../data/kCultureData';
 import CultureCardTemplate from './CultureCardTemplate';
 import { useLanguage } from '../context/LanguageContext';
 
@@ -32,6 +32,134 @@ const CATEGORY_META: Record<KCultureCategory, { icon: React.ReactNode; labelKo: 
   'K-GAME': { icon: <Joystick className="w-4 h-4" />, labelKo: 'K-GAME (e스포츠/PC방)', labelEn: 'eSports & PC Bang', color: 'bg-indigo-100 text-indigo-800 border-indigo-300' }
 };
 
+interface LiteratureSubmenuItem {
+  id: string;
+  labelKo: string;
+  labelEn: string;
+  icon: string;
+  badge?: string;
+  defaultItemId: string;
+  description: string;
+  subgenres?: { id: string; labelKo: string; labelEn: string; itemId: string }[];
+}
+
+const LITERATURE_SUBMENUS: LiteratureSubmenuItem[] = [
+  { 
+    id: 'ALL', 
+    labelEn: 'All Genres', 
+    labelKo: '전체 문학 (13편)', 
+    icon: '📚', 
+    defaultItemId: 'lit-myth-dangun',
+    description: '신화부터 현대문학까지 10대 한국 문학 장르 총망라'
+  },
+  { 
+    id: '신화', 
+    labelEn: 'Mythology', 
+    labelKo: '신화', 
+    icon: '🏛️', 
+    badge: '건국신화', 
+    defaultItemId: 'lit-myth-dangun',
+    description: '단군신화: 고조선 건국과 홍익인간(弘益人間)의 이념'
+  },
+  { 
+    id: '전설', 
+    labelEn: 'Legend', 
+    labelKo: '전설', 
+    icon: '🏔️', 
+    badge: '민중영웅', 
+    defaultItemId: 'lit-legend-uturi',
+    description: '아기장수 우투리 전설: 날개 달린 비운의 영웅과 민중의 염원'
+  },
+  { 
+    id: '민담(야담)', 
+    labelEn: 'Folktale & Yadam', 
+    labelKo: '민담(야담)', 
+    icon: '📜', 
+    badge: '전래설화', 
+    defaultItemId: 'lit-folktale-sun-moon',
+    description: '해와 달이 된 오누이 & 조선 야담: 지혜와 권선징악'
+  },
+  { 
+    id: '전래동화', 
+    labelEn: 'Traditional Fairy Tale', 
+    labelKo: '전래동화', 
+    icon: '✨', 
+    badge: '보은·우애', 
+    defaultItemId: 'lit-fairytale-heungbu',
+    description: '흥부와 놀부: 제비의 은혜 갚기와 슬근슬근 박 타기, 형제 우애'
+  },
+  { 
+    id: '속담', 
+    labelEn: 'Proverbs', 
+    labelKo: '속담', 
+    icon: '💬', 
+    badge: '생활지혜', 
+    defaultItemId: 'lit-proverb-wisdom',
+    description: '삶과 지혜의 속담: "가는 말이 고와야 오는 말이 곱다" 외'
+  },
+  { 
+    id: '수수께끼', 
+    labelEn: 'Riddles', 
+    labelKo: '수수께끼', 
+    icon: '❓', 
+    badge: '언어유희', 
+    defaultItemId: 'lit-riddle-mystery',
+    description: '전통 지혜 수수께끼: 언어유희와 비유적 연상 놀이'
+  },
+  { 
+    id: '고전소설', 
+    labelEn: 'Classical Novels', 
+    labelKo: '고전소설 (4대 갈래)', 
+    icon: '📖', 
+    badge: '4대 갈래', 
+    defaultItemId: 'lit-classic-honggildong',
+    description: '영웅·애정·세태·우화 4대 고전소설 갈래별 대표작',
+    subgenres: [
+      { id: 'ALL', labelEn: 'All Classics', labelKo: '전체 고전소설', itemId: 'lit-classic-honggildong' },
+      { id: '고전소설', labelEn: 'Heroic Novel', labelKo: '고전 영웅소설 (허균 <홍길동전>)', itemId: 'lit-classic-honggildong' },
+      { id: '애정소설', labelEn: 'Romance Novel', labelKo: '고전 애정소설 (<춘향전>)', itemId: 'lit-romance-chunhyang' },
+      { id: '세태소설', labelEn: 'Satirical Novel', labelKo: '고전 세태소설 (<배비장전>)', itemId: 'lit-satire-baebijang' },
+      { id: '우화소설', labelEn: 'Fable Novel', labelKo: '고전 우화소설 (<토끼전>)', itemId: 'lit-fable-rabbit' },
+    ]
+  },
+  { 
+    id: '현대소설', 
+    labelEn: 'Modern Novel', 
+    labelKo: '현대소설', 
+    icon: '📚', 
+    badge: '농촌해학', 
+    defaultItemId: 'lit-modern-spring',
+    description: '김유정 <봄·봄>: 점순이와 데릴사위의 구수한 농촌 해학'
+  },
+  { 
+    id: '현대희곡', 
+    labelEn: 'Modern Drama', 
+    labelKo: '현대희곡', 
+    icon: '🎭', 
+    badge: '전통희극', 
+    defaultItemId: 'lit-play-wedding',
+    description: '오영진 <시집가는 날 (맹진사댁 경사)>: 인간의 허영심 풍자'
+  },
+  { 
+    id: '현대수필', 
+    labelEn: 'Modern Essay', 
+    labelKo: '현대수필', 
+    icon: '🖋️', 
+    badge: '서정수필', 
+    defaultItemId: 'lit-essay-inyeon',
+    description: '피천득 <인연>: 세 번의 만남과 은은한 서정의 미학'
+  },
+  { 
+    id: '서정시', 
+    labelEn: 'Lyric Poetry', 
+    labelKo: '서정시', 
+    icon: '🌸', 
+    badge: '민족시', 
+    defaultItemId: 'lit-poetry-1',
+    description: '윤동주 <서시>: 부끄러움 없는 삶과 순결한 양심'
+  },
+];
+
 export default function KCulture({
   initialCategory,
   onNavigateToChat,
@@ -45,6 +173,8 @@ export default function KCulture({
   const { language, t } = useLanguage();
   const [selectedCategory, setSelectedCategory] = useState<KCultureCategory>(initialCategory || 'K-FOOD');
   const [bookingSuccess, setBookingSuccess] = useState<boolean>(false);
+  const [litGenre, setLitGenre] = useState<string>('ALL');
+  const [litSubgenre, setLitSubgenre] = useState<string>('ALL');
 
   const handleBookLiveTutor = () => {
     const topic = `K-Culture [${selectedCategory}] 전문 1:1 라이브 화상 코칭`;
@@ -100,7 +230,39 @@ export default function KCulture({
     if (items.length > 0) {
       setSelectedItemId(items[0].id);
     }
+    if (cat === 'K-Literature') {
+      setLitGenre('ALL');
+      setLitSubgenre('ALL');
+    }
   };
+
+  const handleSelectLitGenre = (genreId: string) => {
+    setLitGenre(genreId);
+    setLitSubgenre('ALL');
+    const submenu = LITERATURE_SUBMENUS.find((s) => s.id === genreId);
+    if (submenu && submenu.defaultItemId) {
+      setSelectedItemId(submenu.defaultItemId);
+    }
+  };
+
+  const handleSelectLitSubgenre = (subId: string, itemId: string) => {
+    setLitSubgenre(subId);
+    setSelectedItemId(itemId);
+  };
+
+  const displayedLiteratureItems = React.useMemo(() => {
+    if (selectedCategory !== 'K-Literature') return categoryItems;
+    if (litGenre === 'ALL') return categoryItems;
+    if (litGenre === '고전소설') {
+      if (litSubgenre === 'ALL') {
+        return categoryItems.filter((item) => item.literatureGenre === '고전소설');
+      }
+      return categoryItems.filter(
+        (item) => item.literatureGenre === '고전소설' && item.literatureSubgenre === litSubgenre
+      );
+    }
+    return categoryItems.filter((item) => item.literatureGenre === litGenre);
+  }, [selectedCategory, categoryItems, litGenre, litSubgenre]);
 
   const selectedItem =
     K_CULTURE_ITEMS.find((item) => item.id === selectedItemId) ||
@@ -156,70 +318,253 @@ export default function KCulture({
         })}
       </div>
 
-      {/* Topic Selector Tabs (e.g., in K-FOOD: Bibimbap, Traditional Kimchi Making, Tteokbokki, Samgyeopsal) */}
-      {categoryItems.length > 1 && (
-        <div className="bg-white border border-editorial-border p-4 rounded-sm space-y-3 shadow-sm">
-          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-editorial-border/50 pb-2">
-            <div className="flex items-center space-x-2">
-              <span className="text-xs font-bold text-editorial-accent uppercase tracking-wider">
-                📚 {selectedCategory} Curated Topics ({categoryItems.length})
-              </span>
+      {/* If K-Literature: Dedicated Genre Submenus & Published Samples Showcase */}
+      {selectedCategory === 'K-Literature' ? (
+        <div className="bg-white border-2 border-sky-300 rounded-sm p-5 sm:p-6 space-y-5 shadow-xs">
+          {/* Section Header */}
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-editorial-border/60 pb-4">
+            <div className="space-y-1">
+              <div className="flex items-center space-x-2">
+                <span className="inline-flex items-center space-x-1 px-2.5 py-0.5 rounded-sm text-xs font-mono font-bold bg-sky-900 text-white">
+                  <BookOpen className="w-3.5 h-3.5 mr-1" /> K-LITERATURE SUBMENU
+                </span>
+                <span className="text-xs font-bold text-sky-800 uppercase tracking-wider">
+                  한국 문학 10대 장르 체계적 분류 & 대표 샘플
+                </span>
+              </div>
+              <h2 className="text-lg sm:text-xl font-serif font-bold text-editorial-text">
+                K-Literature: 신화부터 현대문학까지 10대 장르 탐구
+              </h2>
+              <p className="text-xs text-editorial-muted">
+                신화, 전설, 민담(야담), 전래동화, 속담, 수수께끼, 고전소설(영웅·애정·세태·우화), 현대소설, 현대희곡, 현대수필 장르별 대표 샘플을 하나씩 감상해 보세요.
+              </p>
             </div>
-            <span className="text-xs text-editorial-muted">
-              Select a topic to explore essential vocabulary, heritage, and native expressions
-            </span>
+            <div className="text-xs font-mono font-bold text-sky-900 bg-sky-50 border border-sky-200 px-3 py-1.5 rounded-sm shrink-0 flex items-center space-x-2">
+              <span>총 13편 명작 큐레이션 수록</span>
+            </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
-            {categoryItems.map((item, idx) => {
-              const active = selectedItem.id === item.id;
-              const englishTitle = (item.titleEn || '')
-                .replace('Taste of Korean Culture: ', '')
-                .replace('Traditional Korean ', '')
-                .trim() || item.titleKo;
-              const koreanTitle = item.titleKo
-                .replace('Taste of Korean Culture: ', '')
-                .replace(/\(.*\)/, '')
-                .trim();
-              const isKimchi = item.id === 'food-kimchi';
-
-              return (
+          {/* 9대 장르 서브메뉴 탭 버튼 (LITERATURE_SUBMENUS) */}
+          <div className="space-y-2">
+            <div className="text-[11px] font-bold uppercase tracking-wider text-editorial-muted flex items-center justify-between">
+              <span>장르 서브메뉴 선택 (Select Genre Submenu)</span>
+              {litGenre !== 'ALL' && (
                 <button
-                  key={item.id}
-                  onClick={() => setSelectedItemId(item.id)}
-                  className={`px-4 py-2.5 rounded-sm text-xs font-bold transition-all cursor-pointer flex items-center space-x-2 ${
-                    active
-                      ? 'bg-editorial-text text-white shadow-sm border border-editorial-text'
-                      : 'bg-editorial-bg text-editorial-text hover:bg-editorial-accent-light/50 border border-editorial-border'
-                  }`}
+                  onClick={() => handleSelectLitGenre('ALL')}
+                  className="text-sky-700 hover:underline cursor-pointer font-semibold text-xs"
                 >
-                  <span
-                    className={`text-[11px] font-mono font-bold px-1.5 py-0.5 rounded-sm ${
-                      active
-                        ? 'bg-editorial-accent text-white'
-                        : 'bg-white text-editorial-muted border border-editorial-border'
+                  전체 장르 보기 (View All)
+                </button>
+              )}
+            </div>
+
+            <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+              {LITERATURE_SUBMENUS.map((sub) => {
+                const isActive = litGenre === sub.id;
+                return (
+                  <button
+                    key={sub.id}
+                    onClick={() => handleSelectLitGenre(sub.id)}
+                    className={`flex items-center gap-2 px-3 sm:px-3.5 py-2 rounded-sm transition-all cursor-pointer text-left ${
+                      isActive
+                        ? 'bg-sky-900 text-white shadow-xs border border-sky-900 ring-2 ring-sky-300'
+                        : 'bg-editorial-bg text-editorial-text hover:bg-sky-100/70 border border-editorial-border hover:border-sky-300'
                     }`}
                   >
-                    #{idx + 1}
-                  </span>
-                  <span>{englishTitle}</span>
-                  <span className={`text-[10px] ${active ? 'text-neutral-300' : 'text-neutral-500'}`}>({koreanTitle})</span>
-                  {isKimchi && (
-                    <span
-                      className={`text-[10px] font-extrabold px-1.5 py-0.5 rounded-sm ${
-                        active
-                          ? 'bg-amber-400 text-black'
-                          : 'bg-amber-100 text-amber-800 border border-amber-300'
+                    <span className="text-base shrink-0">{sub.icon}</span>
+                    <div className="flex flex-col leading-tight">
+                      <span className="text-xs sm:text-sm font-bold tracking-tight font-sans">
+                        {sub.labelEn}
+                      </span>
+                      <span className={`text-[10px] font-medium ${isActive ? 'text-sky-200' : 'text-neutral-500'}`}>
+                        {sub.labelKo}
+                      </span>
+                    </div>
+                    {sub.badge && (
+                      <span className={`text-[9px] px-1.5 py-0.5 rounded-sm font-normal shrink-0 ml-1 hidden lg:inline-block ${
+                        isActive ? 'bg-sky-700 text-sky-100' : 'bg-white text-editorial-muted border border-editorial-border'
+                      }`}>
+                        {sub.badge}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* 고전소설 하위 세부 갈래 4종 선택 바 (고전소설 선택 시 활성화) */}
+          {litGenre === '고전소설' && (
+            <div className="bg-sky-50/80 border border-sky-200 p-3.5 rounded-sm space-y-2 animate-in fade-in duration-200">
+              <div className="flex flex-wrap items-center justify-between gap-1 text-xs font-bold text-sky-950">
+                <span className="flex items-center space-x-1.5">
+                  <span className="font-sans font-bold">📖 Classical Novels Subgenres:</span>
+                  <span className="text-sky-800 text-[11px] font-medium">(영웅·애정·세태·우화소설 4대 갈래)</span>
+                </span>
+                <span className="text-[11px] text-sky-800">원하시는 갈래를 클릭하면 해당 대표작으로 즉시 전환됩니다</span>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                {LITERATURE_SUBMENUS.find((s) => s.id === '고전소설')?.subgenres?.map((subg) => {
+                  const isActive = (subg.id === 'ALL' && litSubgenre === 'ALL') || litSubgenre === subg.id || selectedItemId === subg.itemId;
+                  return (
+                    <button
+                      key={subg.id}
+                      onClick={() => handleSelectLitSubgenre(subg.id, subg.itemId)}
+                      className={`px-3 py-1.5 rounded-sm transition-all cursor-pointer text-left ${
+                        isActive
+                          ? 'bg-sky-800 text-white shadow-xs ring-1 ring-sky-300'
+                          : 'bg-white text-sky-950 hover:bg-sky-100 border border-sky-300'
                       }`}
                     >
-                      NEW • UNESCO
-                    </span>
-                  )}
-                </button>
-              );
-            })}
+                      <div className="flex flex-col leading-tight">
+                        <span className="text-xs sm:text-sm font-bold tracking-tight font-sans">
+                          {subg.labelEn}
+                        </span>
+                        <span className={`text-[10px] font-medium ${isActive ? 'text-sky-200' : 'text-neutral-500'}`}>
+                          {subg.labelKo}
+                        </span>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* 장르별 대표 샘플 갤러리 카드 목록 */}
+          <div className="space-y-3 pt-2 border-t border-editorial-border/60">
+            <div className="flex items-center justify-between">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-editorial-text flex items-center space-x-1.5">
+                <Sparkles className="w-3.5 h-3.5 text-amber-600" />
+                <span>장르별 대표 게시 샘플 ({displayedLiteratureItems.length}편)</span>
+              </h3>
+              <span className="text-[11px] text-editorial-muted">
+                카드를 클릭하여 상세 해설, 핵심 어휘, 대표 원문 낭독(TTS)을 확인하세요
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+              {displayedLiteratureItems.map((item) => {
+                const isCurrent = selectedItem.id === item.id;
+                return (
+                  <div
+                    key={item.id}
+                    onClick={() => setSelectedItemId(item.id)}
+                    className={`p-3.5 rounded-sm border transition-all cursor-pointer flex flex-col justify-between space-y-2.5 ${
+                      isCurrent
+                        ? 'bg-sky-50/90 border-2 border-sky-600 shadow-sm ring-1 ring-sky-400/30'
+                        : 'bg-editorial-bg/40 hover:bg-sky-50/40 border-editorial-border hover:border-sky-300'
+                    }`}
+                  >
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between gap-1">
+                        <div className="inline-flex items-baseline space-x-1.5 px-2 py-0.5 rounded-sm bg-editorial-text text-white">
+                          <span className="text-xs font-bold tracking-tight font-sans">
+                            {getGenreEnglish(item.literatureGenre)}
+                            {item.literatureSubgenre ? ` • ${getSubgenreEnglish(item.literatureSubgenre)}` : ''}
+                          </span>
+                          <span className="text-[10px] text-neutral-300 font-medium">
+                            ({item.literatureGenre}{item.literatureSubgenre ? ` · ${item.literatureSubgenre}` : ''})
+                          </span>
+                        </div>
+                        <span className="text-[10px] font-bold text-editorial-muted truncate">
+                          {item.badge}
+                        </span>
+                      </div>
+                      <h4 className="font-serif font-bold text-sm text-editorial-text leading-snug line-clamp-1">
+                        {item.titleKo}
+                      </h4>
+                      <p className="text-[11px] text-editorial-muted line-clamp-2 leading-relaxed">
+                        {item.subtitleKo}
+                      </p>
+                    </div>
+
+                    {item.literatureExcerpt && (
+                      <div className="p-2 bg-white border border-sky-200/80 rounded-sm text-[11px] font-serif italic text-neutral-800 line-clamp-2">
+                        "{item.literatureExcerpt.quoteKo}"
+                      </div>
+                    )}
+
+                    <div className="flex items-center justify-between pt-1 border-t border-editorial-border/40 text-[11px]">
+                      <span className="text-editorial-muted font-medium">
+                        {item.literatureExcerpt?.authorOrSource || '전승 설화'}
+                      </span>
+                      <span className={`font-bold ${isCurrent ? 'text-sky-700' : 'text-neutral-500'}`}>
+                        {isCurrent ? '✓ 현재 학습 중' : '샘플 읽기 →'}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         </div>
+      ) : (
+        /* Original Category Topics Selector */
+        categoryItems.length > 1 && (
+          <div className="bg-white border border-editorial-border p-4 rounded-sm space-y-3 shadow-sm">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-editorial-border/50 pb-2">
+              <div className="flex items-center space-x-2">
+                <span className="text-xs font-bold text-editorial-accent uppercase tracking-wider">
+                  📚 {selectedCategory} Curated Topics ({categoryItems.length})
+                </span>
+              </div>
+              <span className="text-xs text-editorial-muted">
+                Select a topic to explore essential vocabulary, heritage, and native expressions
+              </span>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              {categoryItems.map((item, idx) => {
+                const active = selectedItem.id === item.id;
+                const englishTitle = (item.titleEn || '')
+                  .replace('Taste of Korean Culture: ', '')
+                  .replace('Traditional Korean ', '')
+                  .trim() || item.titleKo;
+                const koreanTitle = item.titleKo
+                  .replace('Taste of Korean Culture: ', '')
+                  .replace(/\(.*\)/, '')
+                  .trim();
+                const isKimchi = item.id === 'food-kimchi';
+
+                return (
+                  <button
+                    key={item.id}
+                    onClick={() => setSelectedItemId(item.id)}
+                    className={`px-4 py-2.5 rounded-sm text-xs font-bold transition-all cursor-pointer flex items-center space-x-2 ${
+                      active
+                        ? 'bg-editorial-text text-white shadow-sm border border-editorial-text'
+                        : 'bg-editorial-bg text-editorial-text hover:bg-editorial-accent-light/50 border border-editorial-border'
+                    }`}
+                  >
+                    <span
+                      className={`text-[11px] font-mono font-bold px-1.5 py-0.5 rounded-sm ${
+                        active
+                          ? 'bg-editorial-accent text-white'
+                          : 'bg-white text-editorial-muted border border-editorial-border'
+                      }`}
+                    >
+                      #{idx + 1}
+                    </span>
+                    <span>{englishTitle}</span>
+                    <span className={`text-[10px] ${active ? 'text-neutral-300' : 'text-neutral-500'}`}>({koreanTitle})</span>
+                    {isKimchi && (
+                      <span
+                        className={`text-[10px] font-extrabold px-1.5 py-0.5 rounded-sm ${
+                          active
+                            ? 'bg-amber-400 text-black'
+                            : 'bg-amber-100 text-amber-800 border border-amber-300'
+                        }`}
+                      >
+                        NEW • UNESCO
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )
       )}
 
       {/* AI Creator Quick Bridge Banner */}

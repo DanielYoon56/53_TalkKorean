@@ -149,7 +149,6 @@ export default function CreditCheckoutModal({
   const [purchasedPlan, setPurchasedPlan] = useState<CreditPlan | null>(null);
   const [lastTxId, setLastTxId] = useState<string>('');
   const [lastPaymentMethodLabel, setLastPaymentMethodLabel] = useState<string>('');
-  const [showPayPalModal, setShowPayPalModal] = useState<boolean>(false);
   const [tossConfig, setTossConfig] = useState<{ clientKey: string; isLive: boolean }>({
     clientKey: (import.meta.env.VITE_TOSS_CLIENT_KEY as string) || 'test_ck_D5GePWvyJnrK0W0k6q8gLzN97Eoq',
     isLive: false,
@@ -200,7 +199,8 @@ export default function CreditCheckoutModal({
       const tossPayments = await loadTossPayments(tossConfig.clientKey);
       const totalCredits = selectedPlan.credits + selectedPlan.bonusCredits;
       const orderId = `TK_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
-      const successUrl = `${window.location.origin}/?payment=success&planId=${selectedPlan.id}&credits=${totalCredits}&method=${encodeURIComponent(methodLabel)}`;
+      // Success URL no longer includes client-crafted credits parameter; verification is strictly server-side
+      const successUrl = `${window.location.origin}/?payment=success&planId=${selectedPlan.id}&method=${encodeURIComponent(methodLabel)}`;
       const failUrl = `${window.location.origin}/?payment=fail`;
 
       if (paymentMethod === 'kakaopay' || paymentMethod === 'naverpay' || paymentMethod === 'tosspay') {
@@ -247,37 +247,12 @@ export default function CreditCheckoutModal({
   };
 
   const handleStartCheckout = () => {
-    if (paymentMethod === 'paypal') {
-      setShowPayPalModal(true);
-      return;
-    }
     handleTossCheckout();
-  };
-
-  const handlePayPalConfirm = () => {
-    executeCheckout('PayPal Express');
-  };
-
-  const executeCheckout = (methodLabel: string) => {
-    const totalCredits = selectedPlan.credits + selectedPlan.bonusCredits;
-    const txId = `TX_${Date.now()}_${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
-    onAddCredits(
-      totalCredits,
-      `[${methodLabel}] ${selectedPlan.nameKo} (+${totalCredits} CR) [${txId}]`
-    );
-    setLastTxId(txId);
-    setLastPaymentMethodLabel(methodLabel);
-    setIsProcessing(false);
-    setPurchasedPlan(selectedPlan);
-    setPaymentSuccess(true);
-    setShowPayPalModal(false);
-    setShowTossFallbackModal(false);
   };
 
   const handleResetAndClose = () => {
     setPaymentSuccess(false);
     setPurchasedPlan(null);
-    setShowPayPalModal(false);
     onClose();
   };
 
@@ -843,60 +818,7 @@ export default function CreditCheckoutModal({
 
       </div>
 
-      {/* Simulated PayPal Express Modal Overlay */}
-      {showPayPalModal && (
-        <div className="fixed inset-0 z-60 bg-black/70 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-2xl max-w-sm w-full p-5 space-y-4 animate-in zoom-in-95">
-            <div className="flex items-center justify-between pb-3 border-b border-neutral-200">
-              <span className="text-base font-extrabold text-[#003087] font-serif">PayPal</span>
-              <button 
-                onClick={() => setShowPayPalModal(false)}
-                className="text-neutral-400 hover:text-neutral-700"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <div className="text-xs space-y-2">
-              <div className="flex justify-between font-medium">
-                <span className="text-neutral-600">Merchant:</span>
-                <span className="font-bold text-neutral-800">Talk Korean Global Ltd.</span>
-              </div>
-              <div className="flex justify-between font-medium">
-                <span className="text-neutral-600">Package:</span>
-                <span className="font-bold text-neutral-800">{selectedPlan.nameEn}</span>
-              </div>
-              <div className="flex justify-between font-bold text-sm pt-2 border-t border-neutral-200">
-                <span>Total Amount:</span>
-                <span className="text-[#003087] font-mono">${selectedPlan.priceUsd.toFixed(2)} USD</span>
-              </div>
-            </div>
-
-            <div className="bg-neutral-50 p-2.5 rounded border border-neutral-200 text-[11px] text-neutral-600 space-y-1">
-              <p>👤 <strong>Logged in as:</strong> alex.morgan@gmail.com</p>
-              <p>💳 <strong>Payment Method:</strong> Chase Sapphire Visa (•••• 9988)</p>
-            </div>
-
-            <div className="pt-2 space-y-2">
-              <button
-                onClick={() => executeCheckout('PayPal Express')}
-                disabled={isProcessing}
-                className="w-full py-2.5 bg-[#0070BA] hover:bg-[#003087] text-white font-bold text-xs rounded-full transition-colors cursor-pointer shadow-xs"
-              >
-                {isProcessing ? 'Processing PayPal Transaction...' : `Agree & Pay $${selectedPlan.priceUsd.toFixed(2)} USD`}
-              </button>
-              <button
-                onClick={() => setShowPayPalModal(false)}
-                className="w-full py-1 text-[11px] text-neutral-500 hover:text-neutral-800"
-              >
-                Cancel and return to Talk Korean
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Toss Payments iFrame / Sandbox Fallback Modal */}
+      {/* Toss Payments iFrame / Pop-up Guidance Modal */}
       {showTossFallbackModal && (
         <div className="fixed inset-0 z-70 bg-black/75 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-5 space-y-4 border border-editorial-border animate-in zoom-in-95">
@@ -915,11 +837,10 @@ export default function CreditCheckoutModal({
 
             <div className="text-xs text-neutral-700 space-y-2 leading-relaxed">
               <p>
-                현재 실행 중인 개발자 미리보기(iFrame) 보안 정책으로 인해 토스페이먼츠 외부 팝업창 호출이 차단되었거나 승인 대기 중입니다.
+                현재 브라우저 보안 또는 iFrame 환경 설정으로 인해 토스페이먼츠 외부 팝업창 호출이 차단되었거나 승인 대기 중입니다.
               </p>
               <p className="text-neutral-500">
-                실제 PG 결제창을 브라우저 팝업으로 직접 확인하시려면 <strong>새 탭에서 열기</strong>를,
-                현재 창에서 결제 승인 프로세스를 즉시 확인하시려면 <strong>샌드박스 가상 승인</strong>을 선택하세요.
+                안전한 결제 진행을 위해 팝업 차단을 해제하시거나, <strong>새 탭에서 열기</strong>를 통해 정식 결제창을 열어주세요.
               </p>
             </div>
 
@@ -927,41 +848,28 @@ export default function CreditCheckoutModal({
               <div>• PG 연동 모드: {tossConfig.isLive ? 'LIVE 실결제 (사업자 운영 모드)' : 'SANDBOX 테스트 모드'}</div>
               <div>• 클라이언트 키: {tossConfig.clientKey.slice(0, 18)}...</div>
               {tossErrorMessage && (
-                <div className="text-amber-700 font-sans mt-1">사유: {tossErrorMessage}</div>
+                <div className="text-amber-700 font-sans mt-1">상태: {tossErrorMessage}</div>
               )}
             </div>
 
             <div className="flex items-center justify-end space-x-2 pt-2">
               <button
                 type="button"
-                onClick={() => {
-                  setShowTossFallbackModal(false);
-                  window.open(window.location.href, '_blank');
-                }}
-                className="px-3 py-2 border border-editorial-border text-editorial-text hover:bg-neutral-50 text-xs font-bold rounded cursor-pointer flex items-center space-x-1"
+                onClick={() => setShowTossFallbackModal(false)}
+                className="px-3 py-2 border border-editorial-border text-editorial-muted hover:text-editorial-text text-xs rounded cursor-pointer"
               >
-                <ExternalLink className="w-3.5 h-3.5" />
-                <span>새 탭에서 열기</span>
+                닫기
               </button>
               <button
                 type="button"
                 onClick={() => {
                   setShowTossFallbackModal(false);
-                  executeCheckout(
-                    paymentMethod === 'kakaopay'
-                      ? '카카오페이 (Toss Sandbox)'
-                      : paymentMethod === 'naverpay'
-                      ? '네이버페이 (Toss Sandbox)'
-                      : paymentMethod === 'tosspay'
-                      ? '토스페이 (Toss Sandbox)'
-                      : paymentMethod === 'foreign_card'
-                      ? '해외카드 Visa/Master (Toss Sandbox)'
-                      : '국내 카드사 (Toss Sandbox)'
-                  );
+                  window.open(window.location.href, '_blank');
                 }}
-                className="px-4 py-2 bg-neutral-900 text-white hover:bg-neutral-800 text-xs font-bold rounded cursor-pointer"
+                className="px-4 py-2 bg-neutral-900 text-white hover:bg-neutral-800 text-xs font-bold rounded cursor-pointer flex items-center space-x-1"
               >
-                샌드박스 가상 승인 완료
+                <ExternalLink className="w-3.5 h-3.5" />
+                <span>새 탭에서 정식 결제창 열기</span>
               </button>
             </div>
           </div>

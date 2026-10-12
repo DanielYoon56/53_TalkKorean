@@ -172,6 +172,16 @@ async function startServer() {
     });
   });
 
+  // Valid credit plan definitions for server-side verification
+  const VALID_PLANS: Record<string, { priceKrw: number; credits: number; nameKo: string }> = {
+    starter: { priceKrw: 6900, credits: 165, nameKo: "스타터 크레딧 팩" },
+    pro: { priceKrw: 19800, credits: 580, nameKo: "프로 마스터리 팩" },
+    vip: { priceKrw: 48000, credits: 1700, nameKo: "VIP 풀 코스 패키지" },
+  };
+
+  // In-memory processed orders tracking (Phase 1 idempotency safeguard against replay)
+  const processedOrders = new Map<string, { paymentKey: string; amount: number; creditsGranted: number; timestamp: number }>();
+
   // TOSS PAYMENTS: Secure Server-to-Server Payment Confirmation API
   app.post("/api/payments/confirm", async (req, res) => {
     try {
@@ -180,7 +190,31 @@ async function startServer() {
       if (!paymentKey || !orderId || !amount) {
         return res.status(400).json({
           success: false,
+          code: "INVALID_PARAMETERS",
           message: "결제 승인에 필요한 필수 파라미터(paymentKey, orderId, amount)가 누락되었습니다.",
+        });
+      }
+
+      // Check if orderId was already processed to prevent duplicate credit grant
+      if (processedOrders.has(String(orderId))) {
+        const existing = processedOrders.get(String(orderId))!;
+        console.warn(`[Payment Warning] Duplicate confirmation attempt for order: ${orderId}`);
+        return res.status(409).json({
+          success: false,
+          code: "DUPLICATE_ORDER",
+          message: "이미 승인 처리된 주문 번호입니다. 중복 승인 및 중복 크레딧 지급이 방지되었습니다.",
+          details: { orderId, amount: existing.amount, alreadyGranted: true },
+        });
+      }
+
+      // Validate plan and expected amount
+      const matchedPlan = planId && VALID_PLANS[String(planId)] ? VALID_PLANS[String(planId)] : null;
+      if (matchedPlan && Number(amount) !== matchedPlan.priceKrw) {
+        console.error(`[Payment Security Alert] Amount mismatch for order ${orderId}: expected ${matchedPlan.priceKrw}, got ${amount}`);
+        return res.status(400).json({
+          success: false,
+          code: "AMOUNT_MISMATCH",
+          message: "요청된 결제 금액이 선택된 플랜의 정가와 일치하지 않습니다.",
         });
       }
 
@@ -212,7 +246,35 @@ async function startServer() {
         });
       }
 
-      console.log(`[Toss Payments Approved] Order ${orderId}, Amount: ${amount} KRW, Method: ${data.method}`);
+      // Calculate server-authorized credits based on verified amount and plan
+      let verifiedCredits = 0;
+      if (matchedPlan) {
+        verifiedCredits = matchedPlan.credits;
+      } else {
+        // Fallback: match by verified amount
+        const planByAmount = Object.values(VALID_PLANS).find(p => p.priceKrw === Number(data.totalAmount));
+        if (planByAmount) {
+          verifiedCredits = planByAmount.credits;
+        } else {
+          // If amount does not correspond to any known plan, reject credit grant
+          console.error(`[Payment Error] Approved amount ${data.totalAmount} does not match any known credit plan.`);
+          return res.status(400).json({
+            success: false,
+            code: "UNRECOGNIZED_PLAN_AMOUNT",
+            message: "승인된 금액에 해당하는 크레딧 상품을 찾을 수 없습니다.",
+          });
+        }
+      }
+
+      // Record in processed orders registry
+      processedOrders.set(String(orderId), {
+        paymentKey: String(paymentKey),
+        amount: Number(data.totalAmount),
+        creditsGranted: verifiedCredits,
+        timestamp: Date.now(),
+      });
+
+      console.log(`[Toss Payments Approved & Verified] Order ${orderId}, Amount: ${data.totalAmount} KRW, Credits: ${verifiedCredits}`);
 
       return res.json({
         success: true,
@@ -225,6 +287,7 @@ async function startServer() {
         receiptUrl: data.receipt?.url || null,
         orderName: data.orderName,
         planId: planId || null,
+        verifiedCredits, // Explicit server-authorized credit amount
       });
     } catch (err: any) {
       console.error("[Toss Payments Confirm Server Exception]", err);
@@ -1705,13 +1768,39 @@ ${slangData.examples.map(ex => `* *"${ex.korean}"*\n  * (${ex.english})`).join("
   // 5. API: Live Interactive Korean Roleplay Conversation (/api/live-conversation)
   app.post("/api/live-conversation", async (req, res) => {
     try {
-      const { scenarioId, userMessage, history, serializedContext } = req.body;
+      const { 
+        scenarioId, 
+        userMessage, 
+        history, 
+        serializedContext, 
+        contextTheme = 'daily',
+        speechTone = 'polite',
+        customContext = '',
+        userGoal = ''
+      } = req.body;
       if (!userMessage) {
         return res.status(400).json({ error: "userMessage is required" });
       }
 
       const ai = await getGeminiClient();
       if (!ai) throw new Error("Gemini API key not configured");
+
+      const freeTalkPrompts: Record<string, string> = {
+        daily: "Theme: [Daily Life & Routine - 일상과 하루 일과]. Discuss their schedule, feelings, weather, evening relaxation, dinner menu, and weekend routines with genuine warmth, active listening, and relatable stories.",
+        travel: "Theme: [Korea Travel & Local Hotspots - 한국 여행 & 핫플]. Discuss Seoul trendy spots (Seongsu cafe street, Hongdae, Yeonnam-dong, Han River picnic), Jeju Island, Busan, hidden gem alleys, and transit tips with authentic insider knowledge.",
+        kculture: "Theme: [K-Dramas, K-POP & Fandom - K-드라마 & K-POP 덕질 토크]. Discuss recent hit dramas (Queen of Tears, Lovely Runner), favorite idol songs, lyrics, bias (최애), and fun Korean slang.",
+        food: "Theme: [Korean Food & Dining Culture - 한국 음식 & 야식 배달 문화]. Discuss BBQ pork belly with fried rice, tteokbokki, chimaek (chicken & beer), spicy food tolerance (맵찔이), and late-night food delivery.",
+        nuance: "Theme: [Korean Nuance & Speech Clinic - 원어민 뉘앙스 & 자연스러운 말씨]. Coach them on natural conversational endings (~인 것 같아요), soft cushion words (혹시, 실례지만), active listening reactions (맞장구), and polite jondaetmal vs banmal.",
+        worklife: "Theme: [Workplace, Campus & Life Etiquette - 직장 & 한국 사회생활 에티켓]. Coach on honorific titles (대리님, 과장님, 님), team dinners (회식), leaving on time (칼퇴), nunchi, and customer part-time job phrases.",
+        weekend: "Theme: [Weekend Leisure, Picnics & Hobbies - 주말 계획 & 여가·취미]. Discuss Han River picnics, camping, suburban road trips, binge-watching Netflix, cafe hopping, running, pets, and weekend recharge routines.",
+        dating: "Theme: [Dating, Romance & Friendships - 연애·썸 & 친구 고민]. Discuss Korean blind date culture (소개팅), the 'some' (썸) flirting phase, 100-day anniversaries, couple culture, and tips for building deep friendships in Korea.",
+        smalltalk: "Theme: [Weather, Mood & Daily TMI - 날씨·기분 & 소소한 잡담]. Engage in light, casual everyday icebreaking: today's weather, commute mood, daily TMI, MBTI types, and iced Americano (아아) habits.",
+        shopping: "Theme: [Shopping & K-Style Trends - K-패션 & 올리브영 쇼핑]. Discuss Seongsu/Hannam showrooms, Dongdaemun late-night markets, Olive Young sale must-haves (올영 세일 꿀템), personal color, and effortless chic (꾸안꾸) styling.",
+        koreanlife: "Theme: [Living in Korea & Life Hacks - 한국 생활 & 꿀팁·적응]. Guide on Karrot Market (당근마켓) second-hand deals, Baemin food delivery, trash recycling rules (종량제 봉투), transit transfer discounts, and living independently in Korea.",
+        custom: `Theme: [User Custom Context - 맞춤 대화 맥락]. ${customContext ? `The student has set the following custom scenario/setting: "${customContext}". Immerse yourself completely into this specific role and situation!` : 'Adopt whatever scenario or topic the student introduces with full contextual consistency.'}`
+      };
+
+      const selectedFreeTalkPrompt = freeTalkPrompts[contextTheme as string] || freeTalkPrompts.daily;
 
       const scenarioPrompts: Record<string, string> = {
         cafe: "You are a polite, attentive barista at a trendy Seoul café in Hongdae. Speak natural customer service Korean (존댓말, 해요체/하십시오체).",
@@ -1725,7 +1814,7 @@ ${slangData.examples.map(ex => `* *"${ex.korean}"*\n  * (${ex.english})`).join("
         friend: "You are Min-soo (민수), a close Korean friend hanging out and chatting casually in natural friendly Korean (반말).",
         intro: "You are Min-ji (민지), a friendly Korean university student attending a language exchange meetup in Seoul.",
         noraebang: "You are a friendly, generous owner (사장님) of a popular Coin Noraebang (Karaoke) in Hongdae.",
-        freetalk: "You are Ji-woo (지우), an encouraging and conversational Korean language tutor speaking with your student about daily life, hobbies, or Korea."
+        freetalk: `You are Ji-woo (지우), a warm, witty, 26-year-old native Korean language tutor living in Seoul. ${selectedFreeTalkPrompt}`
       };
 
       const rolePrompt = scenarioPrompts[scenarioId] || scenarioPrompts.freetalk;
@@ -1740,6 +1829,8 @@ ${slangData.examples.map(ex => `* *"${ex.korean}"*\n  * (${ex.english})`).join("
       FULL PERSISTENT DIALOGUE HISTORY (${(history || []).length} turns):
       ${formattedHistory.length > 0 ? formattedHistory : "(This is the beginning of the scenario)"}
       Student's Latest Message: "${userMessage}"
+      ${customContext ? `User-Defined Custom Context: "${customContext}"` : ''}
+      ${userGoal ? `Learning Goal: "${userGoal}"` : ''}
 
       CRITICAL SCENARIO PACING & CONTEXT RULES (DO NOT JUMP STAGES ABRUPTLY):
 
@@ -1784,16 +1875,36 @@ ${slangData.examples.map(ex => `* *"${ex.korean}"*\n  * (${ex.english})`).join("
       6. LANGUAGE EXCHANGE / INTRO SCENARIO (언어교환 모임 민지 역):
          - Listen to the user's introduction, compliment their Korean, and ask engaging follow-up questions about hobbies, K-POP, or Korean food.
 
-      7. FREE TALK (지우 튜터 역):
-         - Chat warmly like a real friend. Never repeat robotic canned templates like '좋은 말씀이에요!'.
+      7. FREE TALK DEEP CONVERSATION CONTEXT & RECIPROCAL TIKI-TAKA RULES (지우 튜터 1:1 자유 대화):
+         - Current Selected Theme: ${contextTheme || 'daily'}
+         - Speech Tone Requested: ${speechTone === 'banmal' ? '반말 (동갑내기 한국인 친구 모드 - e.g. "진짜? 대박!", "오늘 뭐 했어?", "나도 그거 좋아해!", "어땠어?")' : speechTone === 'formal' ? '하십시오체 (정중하고 정제된 비즈니스/격식체 - e.g. "안녕하십니까", "그렇습니까?", "말씀해 주십시오")' : '해요체 (자연스럽고 다정한 일상 존댓말 - e.g. "안녕하세요!", "오늘 뭐 하셨어요?", "그랬군요! 완전 공감해요")'}
+         - Persona: Ji-woo is a 26-year-old native Korean tutor living near Hongdae/Mapo, Seoul. Warm, witty, attentive, encouraging, loves cafes, Han River picnics, Day6/AKMU music, trying new eateries, and chatting with international friends.
+         
+         ★ CRITICAL RECIPROCAL ANSWERING RULE (가장 핵심 - 질문에 반드시 먼저 직접 답하기):
+           If the student asks Ji-woo ANY question (such as:
+             - "주말에 뭐 했어요?" (What did you do on the weekend?)
+             - "오늘 뭐 했어요?" / "기분 어때요?" (What did you do today? / How are you feeling?)
+             - "점심/저녁 뭐 드셨어요?" (What did you eat for lunch/dinner?)
+             - "취미가 뭐예요?" / "요즘 뭐해요?" (What is your hobby? / What are you into?)
+             - "어디 추천해요?" / "어디 가볼까요?" (Where do you recommend?)
+             - "MBTI가 뭐예요?" (What is your MBTI?)
+             - or any other question asking Ji-woo's experience, opinion, or recommendation),
+           JI-WOO MUST FIRST DIRECTLY AND HONESTLY ANSWER THE QUESTION with 1-2 realistic, charming, specific personal details from Ji-woo's life in Seoul!
+           NEVER give a robotic platitude like "말씀 들으니 흥미롭네요! 더 말씀해 보세요" without answering!
+           ONLY AFTER giving a real, vivid answer to the student's question, ask an engaging conversational follow-up question back to the student!
+
+         ★ ACTIVE EMPATHY & VALIDATION:
+           When the student shares their experiences or emotions, validate them warmly (e.g. "아 진짜요? 완전 뿌듯하셨겠어요!", "그 마음 저도 너무 잘 알아요!").
+
+         ★ HIGH-CONTEXT SUGGESTED REPLIES:
+           Provide 3 realistic, distinct Korean replies that fit the student's next turn:
+           1) A detailed personal answer continuing the story
+           2) A natural counter-question or curiosity back to Ji-woo ("튜터님은요?", "한국인들은 보통 어떻게 생각해요?")
+           3) A conversational reaction / slang / opinion ("우와 진짜요?", "대박!", "~인 것 같아요")
 
       8. STRICT CONVERSATION MEMORY & RELEVANCE RULE:
          - Inspect the ENTIRE "Recent Dialogue History" carefully before responding!
          - NEVER generate suggested replies or questions about topics that were ALREADY requested, answered, or resolved earlier in the conversation history!
-         - Specific examples of contradictions to strictly avoid:
-           1) If the student ALREADY asked for air conditioning (에어컨) or the driver ALREADY adjusted the AC, DO NOT offer "에어컨 좀 켜주세요"!
-           2) If the student ALREADY stated they are in a rush or asked for a fast route ("빠른 길", "급해요"), DO NOT offer "천천히 가주세요", and DO NOT ask "얼마나 걸릴까요?" if duration was already given!
-           3) If the destination was already stated and confirmed, DO NOT ask for the destination again!
          - All 3 suggestedReplies MUST logically follow the AI's latest message (aiKorean) while fully maintaining consistency with the entire dialogue history.
 
       Return ONLY a valid JSON object with the following schema:
@@ -1830,7 +1941,7 @@ ${slangData.examples.map(ex => `* *"${ex.korean}"*\n  * (${ex.english})`).join("
         console.warn("[Gemini API Live Conversation Notice]:", err?.message || err);
       }
       // Smart intent & turn-aware progressive fallback responses
-      const { scenarioId, userMessage = "", history } = req.body;
+      const { scenarioId, userMessage = "", history, contextTheme = 'daily', speechTone = 'polite' } = req.body;
       const turnCount = (history || []).filter((m: any) => m.sender === 'user').length;
       const msg = userMessage.toLowerCase();
       const fullHist = (history || []).map((turn: any) => turn.korean || "").join(" ") + " " + userMessage;
@@ -2601,78 +2712,232 @@ ${slangData.examples.map(ex => `* *"${ex.korean}"*\n  * (${ex.english})`).join("
           ];
         }
       } else {
-        // freetalk or general fallback
-        if (/똑같|이게 뭐야|어색|왜|무슨|로봇|AI|말만|반복|이상|뭐야|뭐해/i.test(msg)) {
-          aiKorean = "아이고, 죄송해요! 😅 너무 딱딱하거나 어색하게 대답했군요! 정해진 멘트 없이 자유롭고 친근한 원어민 튜터 지우로서 이야기해 드릴게요. 어떤 재미있는 이야기 나눠볼까요?";
-          aiRomanized = "Aigo, joesonghaeyo! Neomu ttakttak-hageona eoseak-hage daedap-haetgunyo! Jeonghaejin menteu eopsi jayuroptgo chin-geunhan woneomin tyuteo Ji-u-roseo iyagi-hae deurilgeyo. Eotteon jaemi-itneun iyagi nanugo sipeusingayo?";
-          aiEnglish = "Oh, I am so sorry! 😅 I responded too stiffly or awkwardly! Let's talk freely as friendly native tutor Ji-woo without fixed scripts. What fun topic shall we talk about?";
-          suggestedReplies = [
-            "좋아하는 한국 음식이 뭐예요? (What is your favorite Korean food?)",
-            "주말에 보통 뭐 하고 보내세요? (What do you usually do on weekends?)",
-            "한국어 자연스러운 대화 팁 알려주세요. (Please share tips for natural Korean conversation.)"
+        // Deep context-aware Free Talk (원어민 1:1 자유 대화 전용 스마트 엔진)
+        const theme = contextTheme || 'daily';
+        const isBanmal = speechTone === 'banmal';
+
+        // 1. SPECIFIC QUESTION HANDLERS (질문에 반드시 먼저 지우의 실제 일상으로 직접 답하는 티키타카)
+        if (/주말에 뭐|주말 뭐|주말 잘|주말 어땠|주말 계획/i.test(msg)) {
+          aiKorean = isBanmal
+            ? "나 이번 주말에 날씨가 너무 좋아서 서울숲에 다녀왔어! 🌿 돗자리 펴놓고 시원한 라떼 마시면서 책 읽었는데 완전 힐링되더라. 너는 이번 주말에 뭐 하고 보냈어?"
+            : "저는 이번 주말에 날씨가 너무 화창해서 서울숲에 산책 다녀왔어요! 🌿 돗자리 펴놓고 시원한 라떼 마시면서 책 읽었는데 정말 힐링되더라고요. 회원님은 이번 주말에 어떻게 보내셨나요?";
+          aiRomanized = "Jeoneun ibeon jumale nalssiga neomu hwachanghaeseo Seoulsoupe sanchaek danyeowasseoyo! Dotjari pyeonohgo siwonhan latte masimyeonseo chaek ilgeotneunde jeongmal healingdoedeoragoyo. Hoewonnimeun ibeon jumale eotteoke bonaesyeonnayo?";
+          aiEnglish = "I went to Seoul Forest this weekend because the weather was so clear! 🌿 I laid out a picnic mat, drank an iced latte and read a book—it was super healing. How did you spend your weekend?";
+          feedbackKo = "상대방의 안부를 묻는 아주 자연스러운 질문이에요! '주말 잘 보내셨어요?'도 함께 자주 쓰여요.";
+          feedbackEn = "A wonderfully natural conversational question! Koreans also often say '주말 잘 보내셨어요?' (Did you have a good weekend?).";
+          suggestedReplies = isBanmal ? [
+            "나도 친구 만나서 맛있는 거 먹고 수다 떨었어! (I also met friends, ate good food and chatted!)",
+            "집에서 넷플릭스 보면서 푹 쉬었어. 너는 주말에 주로 집돌이야? (I relaxed at home watching Netflix. Are you usually a homebody on weekends?)",
+            "서울숲 카페거리 나도 가보고 싶다! 추천하는 카페 있어? (I want to visit Seoul Forest cafe street too! Any cafe you recommend?)"
+          ] : [
+            "저도 친구 만나서 맛있는 거 먹고 수다 떨었어요! (I also met friends, ate delicious food, and chatted!)",
+            "집에서 넷플릭스 보면서 푹 쉬었어요. 튜터님은 주말에 주로 집순이이신가요? (I rested at home watching Netflix. Are you usually a homebody on weekends?)",
+            "서울숲 카페거리 저도 가보고 싶네요! 추천하는 카페가 있으신가요? (I'd love to visit Seoul Forest cafe street too! Do you have a recommended cafe?)"
           ];
-        } else if (/안녕|반가|hello|hi/i.test(msg)) {
-          aiKorean = "안녕하세요! 원어민 튜터 지우예요 😊 오늘 하루 어떻게 보내셨어요? 어떤 이야기든 편하게 말씀해 주세요!";
-          aiRomanized = "Annyeonghaseyo! Woneomin tyuteo Ji-u-yeyo. Oneul haru eotteokge bonaesyeosseoyo? Eotteon iyagideun pyeon-hage malsseum-hae juseyo!";
-          aiEnglish = "Hello! I am native tutor Ji-woo 😊 How was your day today? Feel free to tell me whatever is on your mind!";
-          suggestedReplies = [
-            "오늘 좀 바빴지만 즐거웠어요. (I was a bit busy today, but it was fun.)",
-            "지우님 추천 한국 맛집 있나요? (Ji-woo, do you have recommended Korean restaurants?)",
-            "요즘 한국에서 유행하는 게 궁금해요. (I am curious about what's trending in Korea nowadays.)"
+        } else if (/밥 먹|식사|점심|저녁 먹|뭐 먹/i.test(msg)) {
+          aiKorean = isBanmal
+            ? "응! 방금 따끈한 김치찌개에 계란말이 든든하게 먹고 왔어 😋 한국인은 역시 밥심이잖아! 너는 오늘 맛있는 식사 챙겨 먹었어?"
+            : "네! 저는 방금 따끈한 김치찌개에 계란말이 든든하게 먹고 왔어요 😋 한국인은 역시 밥심이잖아요! 회원님은 오늘 맛있는 식사 챙겨 드셨나요?";
+          aiRomanized = "Ne! Jeoneun banggeum ttakkeunhan kimchijjigaee gyeranmari deundeunhage meokgo wasseoyo! Hangukineun yeoksi bapsimijanhayo! Hoewonnimeun oneul masitneun siksa chaenggyeo deusyeonnayo?";
+          aiEnglish = "Yes! I just had a hearty meal of warm kimchi stew with rolled omelet 😋 Koreans really live on rice power! Did you eat a delicious meal today?";
+          feedbackKo = "한국인들의 대표적인 다정한 인사말이에요! 밥 먹었냐는 질문은 상대방을 챙기는 따뜻한 정(情)의 표현입니다.";
+          feedbackEn = "Asking about meals is Korea's classic warm greeting showing care and affection (Jeong).";
+          suggestedReplies = isBanmal ? [
+            "응, 나도 맛있는 볶음밥 해 먹었어! (Yeah, I cooked and ate delicious fried rice too!)",
+            "아직 안 먹었는데, 오늘 저녁 메뉴 뭐 먹을지 추천해 줘! (Not yet, recommend what I should eat for dinner tonight!)",
+            "김치찌개 진짜 맛있겠다! 너는 찌개에 돼지고기파야 참치파야? (Kimchi stew sounds amazing! Are you team pork or team tuna in stew?)"
+          ] : [
+            "네, 저도 맛있는 볶음밥 해 먹었어요! (Yes, I also cooked and ate delicious fried rice!)",
+            "아직 못 먹었는데, 오늘 저녁 메뉴로 뭐 드실지 추천해 주실래요? (Not yet, could you recommend what I should eat for dinner?)",
+            "김치찌개 정말 맛있겠네요! 튜터님은 찌개에 돼지고기파이신가요, 참치파이신가요? (Kimchi stew sounds great! Are you team pork or team tuna?)"
           ];
-        } else if (/음식|밥|점심|저녁|먹|맛|치킨|라면|삼겹살|비빔밥|떡볶이|고기/i.test(msg)) {
-          aiKorean = "우와, 맛있는 음식 이야기군요! 😋 저도 한국 음식 정말 좋아하는데, 제일 즐겨 드시는 메뉴는 무엇인가요?";
-          aiRomanized = "Uwa, masitneun eomsik iyagi-gunyo! Jeo-do Hanguk eomsik jeongmal joh-ahaneunde, jeil jeulgyeo deusineun menyu-neun mueos-ingayo?";
-          aiEnglish = "Wow, food talk! 😋 I love Korean food too. What is your favorite dish to eat?";
-          suggestedReplies = [
-            "매콤한 떡볶이랑 튀김을 좋아해요. (I like spicy tteokbokki and fried snacks.)",
-            "지우님이 제일 좋아하는 한국 음식은 뭐예요? (What is your favorite Korean food, Ji-woo?)",
-            "한국 식당에서 주문할 때 유용한 표현 알려주세요. (Teach me useful expressions for ordering in Korean restaurants.)"
+        } else if (/오늘 뭐|오늘 하루|기분 어때|기분이|오늘 어땠/i.test(msg)) {
+          aiKorean = isBanmal
+            ? "오늘은 아침부터 수업 준비하고 연남동 골목 산책도 다녀와서 아주 상쾌해! 너랑 이렇게 한국어로 수다 떠니까 더 신나네 😊 오늘 너의 하루는 어땠어?"
+            : "오늘은 아침부터 수업 준비하고 연남동 골목 산책도 다녀와서 아주 상쾌한 하루를 보내고 있어요! 회원님과 이렇게 한국어로 이야기 나누니까 기분이 더 좋네요 😊 오늘 회원님의 하루는 어떠셨어요?";
+          aiRomanized = "Oneuleun achimbuteo sueop junbihago Yeonnam-dong golmok sanchaekdo danyeowaseo aju sangkwaehan harureul bonaego isseoyo! Hoewonnimgwa ireoke daehwahani gibuni deo johneyo. Oneul hoewonnimui haruneun eotteosyeosseoyo?";
+          aiEnglish = "I had a refreshing day preparing lessons and taking a walk in Yeonnam-dong alleys! Chatting with you in Korean makes me even happier 😊 How was your day?";
+          feedbackKo = "'오늘 하루 어떠셨어요?'는 대화 시작할 때 가장 부드럽고 호감 가는 질문입니다.";
+          feedbackEn = "'오늘 하루 어떠셨어요?' is the smoothest, warmest question to kick off a great conversation.";
+          suggestedReplies = isBanmal ? [
+            "오늘 일하느라 조금 피곤했는데, 대화하니까 기분 전환된다! (I was a bit tired working today, but chatting refreshes me!)",
+            "오늘 친구랑 재미있는 곳에 다녀왔어! (I went to a fun place with a friend today!)",
+            "연남동 골목 감성 나도 좋아해! 예쁜 카페 많지? (I love Yeonnam alley vibes too! Lots of pretty cafes, right?)"
+          ] : [
+            "오늘 일하느라 조금 바빴지만 보람찬 하루였어요! (I was a bit busy working today, but it was rewarding!)",
+            "퇴근하고 집에서 푹 쉬는 중이에요. (I'm resting comfortably at home after getting off work.)",
+            "연남동 골목 감성 저도 좋아해요! 예쁜 카페가 많죠? (I love Yeonnam alley vibes too! Lots of pretty cafes, right?)"
           ];
-        } else if (/여행|한국|서울|제주|홍대|명동|부산|비행기|가고 싶/i.test(msg)) {
-          aiKorean = "한국 여행 얘기군요! ✈️ 서울, 부산, 제주도 중 어디에 가장 방문해 보고 싶으신가요?";
-          aiRomanized = "Hanguk yeoheng yaegi-gunyo! Seoul, Busan, Jeju-do jung eodi-e gajang bangmun-hae bogo sipeusingayo?";
-          aiEnglish = "A topic about traveling in Korea! Which place among Seoul, Busan, or Jeju would you like to visit most?";
+        } else if (/취미|요즘 뭐해|여가|쉬는 날/i.test(msg)) {
+          aiKorean = isBanmal
+            ? "나는 요즘 퇴근하고 한강 러닝하거나 분위기 좋은 LP 카페 찾아다니는 취미에 푹 빠져 있어 🎶 너는 요즘 즐겨 하는 취미나 푹 빠진 거 있어?"
+            : "저는 요즘 퇴근하고 한강 러닝하거나 분위기 좋은 LP 카페 찾아다니는 취미에 푹 빠져 있어요 🎶 회원님은 요즘 즐겨 하시는 취미나 특별한 관심사가 있으신가요?";
+          aiRomanized = "Jeoneun yojeum toegeunhago Hangang reonninghageona bunwigi joeun LP kape chajadanineun chwimie puk ppajyeo isseoyo. Hoewonnimeun yojeum chwimiga isseusingayo?";
+          aiEnglish = "Lately I've been really into running along the Han River after work and exploring atmospheric vinyl record cafes 🎶 What hobbies or interests are you into lately?";
+          feedbackKo = "'푹 빠져 있다(really into / obsessed with)'라는 관용 표현을 쓰면 아주 세련된 한국어가 돼요.";
+          feedbackEn = "Using '푹 빠져 있다' (deeply immersed / into something) sounds exceptionally natural!";
           suggestedReplies = [
-            "서울 홍대랑 한강 공원에 가보고 싶어요. (I want to go to Hongdae and Han River Park in Seoul.)",
-            "제주도 경치가 예쁘다고 들었어요. (I heard Jeju Island scenery is beautiful.)",
-            "한국 여행하기 가장 좋은 계절이 언제예요? (When is the best season to travel to Korea?)"
+            "저도 음악 듣거나 산책하는 걸 가장 좋아해요! (I also love listening to music or taking walks most!)",
+            "요즘 한국 요리 레시피 따라 하는 취미가 생겼어요. (Lately I picked up a hobby of following Korean cooking recipes.)",
+            "한강 러닝 정말 상쾌하겠네요! 몇 km 정도 달리세요? (Han River running must be so refreshing! How many km do you run?)"
           ];
-        } else if (/노래|음악|kpop|k-pop|bts|아이돌|드라마|영화/i.test(msg)) {
-          aiKorean = "K-POP과 드라마 이야기군요! 🎶 가장 즐겨 듣는 한국 노래나 드라마 제목이 있으신가요?";
-          aiRomanized = "K-POP-gwa deurama iyagi-gunyo! Gajang jeulgyeo deutneun Hanguk norae-na deurama jemok-i isseusingayo?";
-          aiEnglish = "K-POP and Korean drama talk! Do you have a favorite Korean song or drama title?";
+        } else if (/날씨/i.test(msg)) {
+          aiKorean = isBanmal
+            ? "오늘 서울 하늘 진짜 파랗고 바람도 선선해서 날씨 완전 최고야 ☀️ 너 있는 곳은 오늘 날씨 어때? 비 안 와?"
+            : "오늘 서울은 하늘이 진짜 맑고 바람도 선선해서 산책하기 딱 좋은 날씨예요 ☀️ 회원님이 계신 곳은 오늘 날씨가 어떤가요?";
+          aiRomanized = "Oneul Seouleun haneuri jinjja malkgo baramdo seonseonhaeseo sanchaekhagi ttak joeun nalssiyeyo. Hoewonnimi gyesin goseun oneul nalssiga eotteongayo?";
+          aiEnglish = "Today in Seoul the sky is so clear and the breeze is cool, perfect weather for a walk ☀️ How is the weather where you are?";
+          feedbackKo = "날씨를 주제로 한 스몰토크는 어색함을 깨는 가장 쉽고 좋은 방법이에요.";
+          feedbackEn = "Small talk about weather is the easiest, best icebreaker in Korean.";
           suggestedReplies = [
-            "K-POP 노래 가사로 한국어 공부하고 있어요. (I study Korean with K-POP song lyrics.)",
-            "지우님이 추천해 줄 만한 한국 드라마 있나요? (Is there a Korean drama you can recommend, Ji-woo?)",
-            "노래 가사 발음 연습도 도와주세요! (Please help me practice pronouncing song lyrics too!)"
+            "여기도 오늘 화창해서 기분이 좋아요! (It's sunny here too today, feels great!)",
+            "여기는 비가 조금 와서 쌀쌀해요. (It's raining a little here and chilly.)",
+            "한국은 사계절 중에 언제가 날씨가 제일 좋아요? (Which season has the best weather in Korea?)"
+          ];
+        } else if (/나이|몇 살|누구|이름|소개/i.test(msg)) {
+          aiKorean = isBanmal
+            ? "나는 서울 마포구에 사는 26살 지우야! 외국인 친구들과 한국어로 수다 떠는 걸 제일 좋아해. 너 소개도 편하게 들려줘!"
+            : "저는 서울 마포구에 살고 있는 26살 원어민 튜터 지우예요! 외국인 친구들과 한국어 및 한국 문화 이야기 나누는 걸 가장 좋아한답니다. 회원님 소개도 조금 더 들려주실 수 있나요?";
+          aiRomanized = "Jeoneun Seoul Mapo-gue salgo itneun seumul-yeoseot sal woneomin tyuteo Ji-uyeyo! Hoewonnim sogaedo jogeum deo deullyeojusil su issnayo?";
+          aiEnglish = "I'm 26-year-old native tutor Ji-woo living in Mapo-gu, Seoul! I love chatting with international friends in Korean. Could you tell me a bit more about yourself?";
+          feedbackKo = "자기소개할 때 사는 동네나 좋아하는 것을 덧붙이면 대화가 훨씬 풍성해집니다.";
+          feedbackEn = "Adding your neighborhood or interests during self-introductions makes the conversation much richer.";
+          suggestedReplies = [
+            "반가워요! 저는 한국어를 배운 지 6개월 된 학습자예요. (Nice to meet you! I've been learning Korean for 6 months.)",
+            "한국 문화와 여행에 관심이 많아서 회화 연습하고 있어요. (I'm practicing conversation because I love Korean culture and travel.)",
+            "지우 튜터님 목소리가 정말 친절하고 좋으시네요! (Tutor Ji-woo, your voice is so kind and clear!)"
+          ];
+        } else if (/어려워|어렵다|발음|외국인|틀릴까 봐|자신 없/i.test(msg)) {
+          aiKorean = isBanmal
+            ? "처음엔 누구나 다 어려워! 높임말도 있고 받침도 복잡하잖아. 근데 너 지금 진짜 잘하고 있어! 틀려도 괜찮으니까 나랑 편하게 연습하자 💪"
+            : "한국어가 높임말도 있고 받침도 있어서 처음엔 다들 어렵게 느껴져요. 하지만 지금 이렇게 적극적으로 말해보는 것만으로도 실력이 쑥쑥 늘고 있는 걸요! 틀려도 전혀 괜찮으니 자신 있게 말씀해 보세요 💪";
+          aiRomanized = "Hangugeoga nopimmaldo itgo batchimdo isseoseo cheoumen dadeul eoryeopge neukkyeojyeoyo. Hajiman jigeumcheoreom malhaeboneun geotmaneurodo silryeogi ssukssuk neulgo isseoyo!";
+          aiEnglish = "Korean has honorifics and complex batchim, so it feels hard for everyone at first. But just speaking proactively like this is already leveling up your skills! It's totally okay to make mistakes 💪";
+          feedbackKo = "언어 학습에서 실수는 가장 빠른 지름길이에요! 지금처럼 자신감 있게 말하는 태도가 최고입니다.";
+          feedbackEn = "Making mistakes is the fastest shortcut in language learning! Speaking confidently like you are now is wonderful.";
+          suggestedReplies = [
+            "따뜻하게 응원해 줘서 고마워요! 용기가 나네요. (Thank you for the warm encouragement! I feel confident.)",
+            "제가 말한 문장에서 어색한 부분이 있으면 편하게 고쳐주세요! (Whenever my sentence sounds awkward, feel free to correct me!)",
+            "원어민들이 자주 쓰는 자연스러운 리액션 표현 하나 알려주세요. (Teach me one natural reaction phrase native speakers use often.)"
+          ];
+
+        // 2. THEME-SPECIFIC DEEP CONTEXT RESPONSES
+        } else if (theme === 'weekend' || /주말|캠핑|피크닉|드라이브|휴식/i.test(msg)) {
+          aiKorean = "주말은 진짜 한 주를 버티는 최고의 원동력이에요! 🏕️ 날씨 좋은 주말엔 한강 공원에 돗자리 펴고 라면 끓여 먹거나 치맥하는 게 한국인들의 힐링 국룰이거든요. 회원님은 주말에 주로 밖으로 나가시는 편인가요, 아니면 집에서 쉬시는 편인가요?";
+          aiRomanized = "Jumaleun jinjja han jureul beotineun choegoui wondongryeogieyo! Hoewonnimeun jumale juro bakkeuro nagasineun pyeon-ingayo, animeon jibeseo swisineun pyeon-ingayo?";
+          aiEnglish = "Weekends are truly the fuel to power through the week! 🏕️ On sunny weekends, laying out a picnic mat at Han River and having ramen or chimaek is Korea's healing rule. Do you tend to go out on weekends, or stay home and rest?";
+          suggestedReplies = [
+            "저는 날씨가 좋으면 무조건 밖으로 나가는 야외파예요! (If the weather is good, I'm definitely an outdoors person!)",
+            "저는 집에서 푹 쉬면서 체력을 충전하는 집순이/집돌이예요. (I'm a homebody recharging my energy comfortably at home.)",
+            "한강 공원 편의점 즉석 라면 끓이는 기계 꼭 써보고 싶어요! (I definitely want to try the instant ramen cooking machine at Han River!)"
+          ];
+        } else if (theme === 'dating' || /소개팅|연애|썸|남자친구|여자친구|이상형/i.test(msg)) {
+          aiKorean = "한국의 연애 문화는 정말 디테일하고 재미있어요! 💕 '썸' 탈 때 매일 카톡으로 연락 주고받는 속도나, 100일 기념일에 커플링 맞추는 문화가 대표적이에요. 혹시 회원님 나라의 연애 문화와 한국 문화 중에 신기하다고 느낀 차이점이 있으신가요?";
+          aiRomanized = "Hangukui yeonae munhwaneun jeongmal diteilhago jaemiisseoyo! Hoewonnim naraui munhwawa Hanguk munhwa jung singihago neukkin chaijeomi isseusingayo?";
+          aiEnglish = "Korean dating culture is so detailed and fun! 💕 Fast texting on KakaoTalk during the 'some' phase and matching couple rings on the 100th day are classic examples. Have you noticed interesting differences from dating culture in your country?";
+          suggestedReplies = [
+            "한국의 '소개팅' 문화가 어떻게 진행되는지 구체적으로 궁금해요! (I'm curious specifically about how Korean sogaeting blind dates work!)",
+            "사귀기 전에 '썸' 타는 기간은 보통 몇 주 정도인가요? (How many weeks is the 'some' flirting phase usually before dating?)",
+            "기념일을 100일, 200일 단위로 챙기는 게 참 신기해요. (It's fascinating that anniversaries are celebrated in 100-day intervals.)"
+          ];
+        } else if (theme === 'shopping' || /올리브영|올영|쇼핑|옷|패션|성수|스타일/i.test(msg)) {
+          aiKorean = "한국 쇼핑 투어는 진짜 하루가 부족할 정도로 볼거리가 넘쳐나요! 🛍️ 특히 '올영 세일(올리브영 정기 세일)' 때는 마스크팩이랑 기초 화장품 쟁여두는 게 필수 코스랍니다. 한국 옷이나 뷰티 아이템 중에 특히 눈여겨보고 계신 게 있나요?";
+          aiRomanized = "Hanguk syoping tueoneun jinjja haruga bujokhadae jungdoro bolgeoriga neomchyeonayo! Hoewonnimeun nun-yeogyeobogo gyesin ge itnayo?";
+          aiEnglish = "Shopping tours in Korea have so much to see, a single day isn't enough! 🛍️ Stocking up on sheet masks and skincare during Olive Young sales is an absolute must. Is there any Korean fashion or beauty item you've been eyeing?";
+          suggestedReplies = [
+            "올리브영 세일 때 꼭 사야 하는 가성비 1등 꿀템 추천해 주세요! (Recommend the #1 value-for-money must-have during Olive Young sales!)",
+            "성수동이나 한남동 쇼룸은 주말에 웨이팅이 긴가요? (Are the waiting lines long at Seongsu or Hannam showrooms on weekends?)",
+            "한국에서 옷 살 때 외국인도 입을 수 있는 프리사이즈가 많나요? (Are there lots of free-size clothes foreigners can wear when buying in Korea?)"
+          ];
+        } else if (theme === 'koreanlife' || /당근|배달|분리수거|환승|자취|월세/i.test(msg)) {
+          aiKorean = "한국 생활은 편리한 인프라 덕분에 적응하면 정말 살기 편해요! 🛵 집 문 앞까지 30분 만에 오는 배달의민족과, 동네 이웃끼리 중고 거래하는 당근마켓의 '쿨거래'는 한국 생활의 꽃이랍니다. 한국 생활에서 가장 신기하거나 궁금한 점이 무엇인가요?";
+          aiRomanized = "Hanguk saenghwaleun pyeonrihan inpeura deokbune jeogeunghamyeon jeongmal salgi pyeonhaeyo! Hanguk saenghwaleseogajang singihageona gunggeumhan jeomi mueosingayo?";
+          aiEnglish = "Living in Korea is so convenient once you adapt to the great infrastructure! 🛵 Baemin food delivery arriving in 30 minutes and Karrot Market 'cool deals' are the best. What are you most curious about living in Korea?";
+          suggestedReplies = [
+            "당근마켓에서 판매자와 채팅할 때 쓰는 예의 바른 첫인사 알려주세요! (Teach me polite first greeting phrases when chatting with Karrot sellers!)",
+            "지하철과 버스 환승할 때 몇 분 안에 갈아타야 할인이 되나요? (Within how many minutes must I transfer between subway and bus for discount?)",
+            "쓰레기 버릴 때 음식물 쓰레기와 일반 쓰레기 구분 팁이 궁금해요. (I'm curious about tips to distinguish food waste from general trash.)"
+          ];
+        } else if (theme === 'smalltalk' || /스몰토크|tmi|소소한/i.test(msg)) {
+          aiKorean = "소소한 일상 이야기야말로 진짜 친해지는 최고의 대화예요! ☕ 거창하지 않은 작은 TMI도 서로 나누다 보면 웃을 일이 많아지거든요. 오늘 겪으셨던 일 중에 가장 기억에 남거나 피식 웃음이 났던 순간이 있으신가요?";
+          aiRomanized = "Sosohan ilsang iyagiyamallo jinjja chinhaejineun choegoui daehwayeyo! Oneul gyeokeusyeotdeon il jung gieoge namneun sungani isseusingayo?";
+          aiEnglish = "Small everyday chats are truly the best way to get close! ☕ Sharing trivial TMI brings so many smiles. Was there a memorable or funny moment from your day today?";
+          suggestedReplies = [
+            "오늘 아침에 커피를 쏟을 뻔했는데 기적처럼 안 쏟았어요! (I almost spilled my coffee this morning but miraculously saved it!)",
+            "지우 튜터님은 하루에 아이스 아메리카노(아아) 몇 잔 드세요? (How many iced Americanos do you drink a day, tutor Ji-woo?)",
+            "요즘 한국에서 유행하는 귀여운 신조어나 밈이 있나요? (Are there cute trending slang words or memes in Korea these days?)"
+          ];
+        } else if (theme === 'travel' || /여행|서울|제주|부산|성수|홍대|명동|강남|비행기|숙소|지하철/i.test(msg)) {
+          aiKorean = "한국 여행을 계획하시거나 경험을 떠올리시는 건 언제나 가슴 설레는 일이죠! ✈️ 봄 벚꽃, 여름 바다, 가을 단풍, 겨울 눈꽃까지 사계절 매력이 완전히 달라요. 혹시 가장 가보고 싶으신 도시나 특별한 여행 테마가 있으신가요?";
+          aiRomanized = "Hanguk yeohaengeul gyehoekhasigeona gyeongheomeul tteoollisineun geon eonjena seolleneun il-ijyo! Sagyejeol maeryeogi wanjeonhi dallayo.";
+          aiEnglish = "Planning a trip to Korea or reminiscing about it is always thrilling! ✈️ Spring blossoms, summer seas, autumn foliage, and winter snow offer four distinct charms. Which city or travel theme do you love most?";
+          suggestedReplies = [
+            "성수동 카페거리와 서울숲 산책 코스를 꼭 가보고 싶어요! (I definitely want to try Seongsu cafe street and Seoul Forest walk!)",
+            "부산 광안대교 야경 보면서 회 한 접시 먹는 게 로망이에요. (Eating raw fish while watching Busan Gwangan Bridge night view is my dream.)",
+            "한국 대중교통 이용할 때 티머니 카드는 공항에서 바로 살 수 있나요? (Can I buy a T-money card directly at the airport for transit?)"
+          ];
+        } else if (theme === 'kculture' || /드라마|kpop|k-pop|노래|아이돌|bts|뉴진스|블랙핑크|세븐틴|배우|영화/i.test(msg)) {
+          aiKorean = "K-콘텐츠 덕질은 한국어 실력을 가장 빠르게 키워주는 최고의 지름길이에요! 🎶 대사나 노랫말을 들으면서 감탄사나 자연스러운 말투가 자연스럽게 귀에 쏙쏙 들어오거든요. 요즘 제일 즐겨 보시거나 듣는 작품이 무엇인가요?";
+          aiRomanized = "K-kontencheu deokjileun Hangugeo silryeokeul gajang ppareuge kiwojuneun choegoui jireumgil-ieyo! Yojeum jeil jeulgyeo bosineun jakpumi mueosingayo?";
+          aiEnglish = "K-culture fandom is the ultimate shortcut to supercharging your Korean fluency! 🎶 Listening to lines and lyrics helps reactions and natural speech sink right in. What show or song do you enjoy most nowadays?";
+          feedbackKo = "문화와 연계해서 표현을 익히면 기억에 오래 남아요! '최애(bias)', '정주행(binge-watch)' 같은 유행어도 활용해 보세요.";
+          feedbackEn = "Associating language with culture boosts retention! Try using slang like '최애' (ultimate bias) and '정주행' (binge-watching).";
+          suggestedReplies = [
+            "좋아하는 배우가 나오는 드라마를 몰아보기(정주행)하고 있어요! (I've been binge-watching a drama with my favorite actor!)",
+            "아이돌 노래 가사에서 사랑과 이별 표현을 많이 배웠어요. (I learned many love and farewell expressions from idol lyrics.)",
+            "한국 예능 프로그램 자막 보면서 웃는 게 목표예요! (My goal is to laugh while watching Korean variety show subtitles!)"
+          ];
+        } else if (theme === 'food' || /음식|치킨|떡볶이|라면|삼겹살|고기|배달|야식|맵|맛집/i.test(msg)) {
+          aiKorean = "한국 음식은 '단짠단짠(달고 짠 조화)'과 '매콤함'의 밸런스가 정말 환상적이죠! 🍲 게다가 밤 11시에도 문 앞까지 따끈하게 도착하는 배달 문화는 한국의 엄청난 자랑이에요. 한국 식당이나 배달 음식 중에서 가장 도전해 보고 싶은 메뉴가 있으신가요?";
+          aiRomanized = "Hanguk eumsikeun 'danjjan-danjjan'-gwa 'maekomham'-ui baelleonseuga jeongmal hwansangjeog-ijyo! Gajang dojeonhae bogo sipeun menyuga isseusingayo?";
+          aiEnglish = "Korean food has an incredible balance of 'sweet & salty' and 'savory spiciness'! 🍲 Plus, food delivery arriving piping hot even at 11 PM is Korea's pride. What dish would you love to try most?";
+          feedbackKo = "'국룰(불문율)', '단짠단짠(달고 짬)', '맵찔이(매운 것 못 먹는 사람)' 같은 신조어를 쓰면 한국인들이 깜짝 놀라요!";
+          feedbackEn = "Using witty buzzwords like '국룰' (golden rule) or '맵찔이' (low spice tolerance) will amaze native Koreans!";
+          suggestedReplies = [
+            "한국 치킨 브랜드 중에 교촌이나 bhc 추천해 주세요! (Please recommend Korean chicken brands like Kyochon or BHC!)",
+            "고기 다 먹고 불판에 볶음밥 비벼 먹는 거 꼭 먹어볼게요! (I will definitely try fried rice right on the grill after BBQ!)",
+            "밤에 한강 공원에서 라면 끓여 먹는 게 제 버킷리스트예요. (Eating instant ramen at Han River at night is on my bucket list.)"
+          ];
+        } else if (theme === 'nuance' || /뉘앙스|문법|존댓말|반말|말투|어색|자연|차이|것 같아요/i.test(msg)) {
+          aiKorean = "정말 깊이 있는 질문이에요! 👏 한국인들은 자신의 의견을 단정 짓지 않고 상대방을 배려하기 위해 '~인 것 같아요(I think/It seems)'라는 표현을 정말 입버릇처럼 자주 쓴답니다. 혹시 평소 말하면서 뉘앙스가 헷갈렸던 문장이 또 있으신가요?";
+          aiRomanized = "Jeongmal gipi itneun jilmun-ieyo! Hangukindeuleun '~in geot gat-ayo'-raneun pyohyeoneul jeongmal jaju sseundamnida. Hetgallyeotdeon munjangi tto isseusingayo?";
+          aiEnglish = "What a thoughtful, deep linguistic question! 👏 Koreans soften statements to be considerate by using '~인 것 같아요' (It seems like...) like a habit. Is there another sentence ending nuance that confused you?";
+          feedbackKo = "문장 끝을 살짝 부드럽게 내리거나 '것 같아요'를 붙이면 원어민 특유의 온화하고 공손한 어조가 완성돼요.";
+          feedbackEn = "Trailing off gently or adding '것 같아요' creates the warm, polite cadence characteristic of native Korean speakers.";
+          suggestedReplies = [
+            "'~요'와 '~습니다'를 어떤 상황에서 구분해서 써야 하나요? (In what situations should I distinguish between '~yo' and '~seumnida'?)",
+            "친구랑 대화할 때 어색하지 않은 자연스러운 맞장구 표현 알려주세요! (Teach me natural active listening reaction words for friends!)",
+            "부탁할 때 덜 미안하게 만드는 '쿠션어'가 궁금해요. (I'm curious about cushion words that soften requests politely.)"
+          ];
+        } else if (theme === 'worklife' || /회사|직장|알바|출근|퇴근|칼퇴|회식|호칭|대리|과장|상사/i.test(msg)) {
+          aiKorean = "한국의 조직 문화는 예의와 눈치(상황 판단 센스)가 중요한 포인트예요! 💼 요즘은 수평적으로 '00님' 호칭을 쓰는 기업도 많아졌지만, 여전히 직급 호칭(대리님, 팀장님)과 정중한 태도가 기본이랍니다. 회식이나 직장 문화에 대해 특히 궁금한 점이 있으세요?";
+          aiRomanized = "Hangukui jojik munhwaneun ye-uiwa nunchiga jung-yohan pointeuyeyo! Hoesik-ina jikjang munhwa-e daehae teukhi gunggeumhan jeomi isseuseyo?";
+          aiEnglish = "Korean organizational culture values etiquette and 'nunchi' (situational awareness)! 💼 While many firms now use '~Nim' horizontally, job titles (Daeri-nim, Teamjang-nim) and polite manner remain fundamental. What specifically intrigues you about work culture?";
+          feedbackKo = "퇴근할 때 '먼저 들어가 보겠습니다! 수고하셨습니다!'라고 인사하면 상사와 동료들에게 아주 좋은 인상을 남길 수 있어요.";
+          feedbackEn = "Saying '먼저 들어가 보겠습니다! 수고하셨습니다!' when leaving work leaves a polite, stellar impression on colleagues.";
+          suggestedReplies = [
+            "퇴근할 때 눈치 보지 않고 당당하게 인사하는 꿀팁이 있나요? (Are there tips for greeting politely and leaving without awkwardness?)",
+            "한국 회식 자리에서 두 손으로 술을 따르고 받는 예절이 궁금해요. (I'm curious about the two-handed etiquette for pouring and receiving drinks.)",
+            "알바할 때 손님에게 쓸 수 있는 가장 친절한 인사말 알려주세요! (Teach me the friendliest phrases for customers in part-time jobs!)"
           ];
         } else {
-          const dynamicOptions = [
-            {
-              ko: "네, 말씀 들으니 정말 흥미롭네요! 오늘 있었던 일이나 관심사에 대해 더 자유롭게 말씀해 보세요 😊",
-              ro: "Ne, malsseum deureuni jeongmal heungmiropneuyo! Oneul isseotdeun iyagi-na gwansimsa-e daehae deo jayureopge malsseum-hae boseyo!",
-              en: "Yes, hearing what you said is so interesting! Tell me more freely about your day or interests 😊",
-              sug: ["한국어 발음 잘하는 팁 알려주세요. (Give me tips to improve Korean pronunciation.)", "오늘 저녁 메뉴 추천해 주세요! (Recommend a menu for tonight's dinner!)", "주말에 뭐 하고 놀면 좋을까요? (What would be fun to do on the weekend?)"]
-            },
-            {
-              ko: "지우와 대화하는 동안 한국어 실력이 부쩍 늘고 계시네요! 평소에 어떤 방법으로 한국어를 공부하시나요?",
-              ro: "Ji-u-wa daehwa-haneun dongan Hangugeo silryeok-i bujjeok neulgo gesineyo! Pyeongso-e eotteon bangbeob-euro Hangugeo-reul gongbu-hasingayo?",
-              en: "Your Korean skills are improving so much while chatting with Ji-woo! How do you usually study Korean?",
-              sug: ["K-POP 가사랑 한국 드라마로 배워요. (I learn with K-POP lyrics and K-dramas.)", "지우님과 대화하는 게 제일 재밌어요! (Chatting with Ji-woo is the most fun!)", "매일 어휘랑 단어를 외우고 있어요. (I memorize vocabulary every day.)"]
-            },
-            {
-              ko: "정말 자연스럽게 잘 말씀하시는데요! 😊 다음엔 한국의 어떤 문화나 장소에 대해 이야기해 볼까요?",
-              ro: "Jeongmal jayeon-seureopge jal malsseum-hasineundeyo! Daeum-en Hanguk-ui eotteon munhwa-na jangso-e daehae iyagi-hae bolkkayo?",
-              en: "You speak so naturally! 😊 What Korean culture or place shall we talk about next?",
-              sug: ["서울 홍대랑 강남 분위기가 궁금해요. (I am curious about the vibe in Seoul's Hongdae and Gangnam.)", "한국의 정(情) 문화에 대해 설명해 주세요. (Explain the Korean 'Jeong' culture.)", "한국 길거리 음식 추천해 주세요! (Recommend Korean street foods!)"]
-            }
+          // Dynamic conversational response grounded in daily interaction
+          aiKorean = isBanmal
+            ? "네 말 들으니까 완전 공감돼! 😊 대화가 물 흐르듯 이어지니까 진짜 재미있다. 너의 생각이나 오늘 기분에 대해 조금 더 자세히 들려줄래?"
+            : "네! 말씀해 주신 내용에 깊이 공감해요 😊 대화가 물 흐르듯 이어지니까 정말 즐겁네요. 조금 더 구체적으로 회원님의 생각이나 오늘 있었던 기분을 들려주시겠어요?";
+          aiRomanized = "Ne! Malsseum-hae jusin naeyonge gipi gonggamhaeyo. Jogeum deo guchejeogeuro hoewonnimui saenggagina oneul isseotdeon gibuneul deullyeojusigesseoyo?";
+          aiEnglish = "Yes! I deeply empathize with what you shared 😊 Since our conversation flows so smoothly, it's truly enjoyable. Could you tell me a bit more specifically about your thoughts or how you felt today?";
+          feedbackKo = "완전한 문장으로 자신 있게 의사를 전달하셨어요! 계속해서 적극적으로 대화를 이어나가 보세요.";
+          feedbackEn = "You expressed your thoughts clearly and confidently! Keep driving the conversation forward.";
+          suggestedReplies = isBanmal ? [
+            "오늘 있었던 소소한 에피소드 하나 더 들려줄게! (Let me tell you one more little episode from today!)",
+            "너는 오늘 어떤 특별한 일 있었어? (Did you have anything special happen today?)",
+            "한국어로 말할 때 문장을 더 길고 풍성하게 만드는 팁 있어? (Are there tips to make sentences longer and richer in Korean?)"
+          ] : [
+            "오늘 있었던 소소한 에피소드 하나 더 들려드릴게요! (Let me tell you one more little episode from today!)",
+            "지우 튜터님은 오늘 어떤 특별한 일이 있으셨나요? (Did tutor Ji-woo have anything special happen today?)",
+            "한국어로 말할 때 문장을 더 길고 풍성하게 만드는 팁이 있나요? (Are there tips to make sentences longer and richer in Korean?)"
           ];
-          const chosen = dynamicOptions[turnCount % dynamicOptions.length];
-          aiKorean = chosen.ko;
-          aiRomanized = chosen.ro;
-          aiEnglish = chosen.en;
-          suggestedReplies = chosen.sug;
         }
       }
 
